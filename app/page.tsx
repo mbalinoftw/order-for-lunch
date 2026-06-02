@@ -1,65 +1,278 @@
-import Image from "next/image";
+"use client"
 
-export default function Home() {
+import { useState, useEffect, useRef } from "react"
+import Image from "next/image"
+import { MENU_ITEMS } from "@/lib/menu"
+import type { MenuItem } from "@/lib/types"
+import { MenuCard } from "./components/MenuCard"
+import { getOrderPhrase } from "@/lib/order"
+
+type Step = "name" | "menu" | "confirm" | "done"
+
+export default function OrderPage() {
+  const [step, setStep] = useState<Step>("name")
+  const [name, setName] = useState("")
+  const [token, setToken] = useState<string | null>(null)
+  const [tokenVerified, setTokenVerified] = useState(false)
+  const [tokenError, setTokenError] = useState("")
+  const [selected, setSelected] = useState<MenuItem | null>(null)
+  const [loading, setLoading] = useState(false)
+  const [error, setError] = useState("")
+  const [selectedBread, setSelectedBread] = useState("")
+  const [selectedDressing, setSelectedDressing] = useState<string[]>([])
+  const [orderPhrase, setOrderPhrase] = useState("")
+  const tokenChecked = useRef(false)
+
+  useEffect(() => {
+    if (tokenChecked.current) return
+    tokenChecked.current = true
+    const params = new URLSearchParams(window.location.search)
+    const t = params.get("token")
+    if (!t) return
+    fetch(`/api/auth/token?token=${t}`)
+      .then((res) => (res.ok ? res.json() : Promise.reject()))
+      .then((data: { name: string }) => {
+        setToken(t)
+        setName(data.name)
+        setTokenVerified(true)
+        setStep("menu")
+      })
+      .catch(() => {
+        setTokenError("Tu link expiró o no es válido. Escribí tu nombre para continuar.")
+      })
+  }, [])
+
+  function handleSelectItem(item: MenuItem) {
+    setSelected(item)
+    setSelectedBread(item.bread?.[0] ?? "")
+    setSelectedDressing([])
+    setStep("confirm")
+  }
+
+  function toggleDressing(option: string) {
+    setSelectedDressing((prev) => {
+      if (prev.includes(option)) return prev.filter((d) => d !== option)
+      if (prev.length >= 2) return prev
+      return [...prev, option]
+    })
+  }
+
+  async function submitOrder() {
+    if (!selected) return
+    setLoading(true)
+    setError("")
+    try {
+      const res = await fetch("/api/orders", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({
+          name: name.trim(),
+          item_id: selected.id,
+          selected_bread: selectedBread || undefined,
+          selected_dressing: selectedDressing.length > 0 ? selectedDressing : undefined,
+          ...(token && { token }),
+        }),
+      })
+      if (!res.ok) {
+        const data = await res.json()
+        setError(data.error ?? "Ocurrió un error")
+        return
+      }
+      setOrderPhrase(getOrderPhrase())
+      setStep("done")
+    } catch {
+      setError("No se pudo conectar. Intentá de nuevo.")
+    } finally {
+      setLoading(false)
+    }
+  }
+
   return (
-    <div className="flex flex-col flex-1 items-center justify-center bg-zinc-50 font-sans dark:bg-black">
-      <main className="flex flex-1 w-full max-w-3xl flex-col items-center justify-between py-32 px-16 bg-white dark:bg-black sm:items-start">
-        <Image
-          className="dark:invert"
-          src="/next.svg"
-          alt="Next.js logo"
-          width={100}
-          height={20}
-          priority
-        />
-        <div className="flex flex-col items-center gap-6 text-center sm:items-start sm:text-left">
-          <h1 className="max-w-xs text-3xl font-semibold leading-10 tracking-tight text-black dark:text-zinc-50">
-            To get started, edit the page.tsx file.
-          </h1>
-          <p className="max-w-md text-lg leading-8 text-zinc-600 dark:text-zinc-400">
-            Looking for a starting point or more instructions? Head over to{" "}
-            <a
-              href="https://vercel.com/templates?framework=next.js&utm_source=create-next-app&utm_medium=appdir-template-tw&utm_campaign=create-next-app"
-              className="font-medium text-zinc-950 dark:text-zinc-50"
-            >
-              Templates
-            </a>{" "}
-            or the{" "}
-            <a
-              href="https://nextjs.org/learn?utm_source=create-next-app&utm_medium=appdir-template-tw&utm_campaign=create-next-app"
-              className="font-medium text-zinc-950 dark:text-zinc-50"
-            >
-              Learning
-            </a>{" "}
-            center.
-          </p>
-        </div>
-        <div className="flex flex-col gap-4 text-base font-medium sm:flex-row">
-          <a
-            className="flex h-12 w-full items-center justify-center gap-2 rounded-full bg-foreground px-5 text-background transition-colors hover:bg-[#383838] dark:hover:bg-[#ccc] md:w-[158px]"
-            href="https://vercel.com/new?utm_source=create-next-app&utm_medium=appdir-template-tw&utm_campaign=create-next-app"
-            target="_blank"
-            rel="noopener noreferrer"
-          >
-            <Image
-              className="dark:invert"
-              src="/vercel.svg"
-              alt="Vercel logomark"
-              width={16}
-              height={16}
+    <main className="min-h-screen bg-gray-50">
+      <header className="bg-white border-b border-gray-100 px-6 py-4">
+        <h1 className="text-2xl font-bold text-gray-900">🥪 Pedido Sangucheto</h1>
+      </header>
+
+      <div className="max-w-7xl mx-auto px-4 py-8">
+        {step === "name" && (
+          <div className="bg-white rounded-2xl border border-gray-100 shadow-sm p-8 max-w-md mx-auto">
+            <h2 className="text-xl font-semibold text-gray-900 mb-2">¿Quién anda ahí?</h2>
+            <p className="text-gray-400 mb-6 text-sm">Para identificar tu pedido</p>
+            {tokenError && (
+              <p className="text-amber-600 text-sm bg-amber-50 border border-amber-100 rounded-xl px-4 py-3 mb-4">
+                {tokenError}
+              </p>
+            )}
+            <input
+              type="text"
+              value={name}
+              onChange={(e) => setName(e.target.value)}
+              onKeyDown={(e) => e.key === "Enter" && name.trim().length >= 2 && setStep("menu")}
+              placeholder="Nombre"
+              disabled={tokenVerified}
+              className="w-full border border-gray-200 rounded-xl px-4 py-3 text-gray-900 placeholder-gray-300 focus:outline-none focus:ring-2 focus:ring-gray-300 mb-4 disabled:bg-gray-50 disabled:text-gray-400"
+              autoFocus={!tokenVerified}
             />
-            Deploy Now
-          </a>
-          <a
-            className="flex h-12 w-full items-center justify-center rounded-full border border-solid border-black/[.08] px-5 transition-colors hover:border-transparent hover:bg-black/[.04] dark:border-white/[.145] dark:hover:bg-[#1a1a1a] md:w-[158px]"
-            href="https://nextjs.org/docs?utm_source=create-next-app&utm_medium=appdir-template-tw&utm_campaign=create-next-app"
-            target="_blank"
-            rel="noopener noreferrer"
-          >
-            Documentation
-          </a>
-        </div>
-      </main>
-    </div>
-  );
+            <button
+              disabled={name.trim().length < 2}
+              onClick={() => setStep("menu")}
+              className="w-full bg-gray-900 hover:bg-gray-700 disabled:bg-gray-100 disabled:text-gray-300 text-white font-semibold rounded-xl py-3 transition-colors"
+            >
+              Ver menú →
+            </button>
+          </div>
+        )}
+
+        {step === "menu" && (
+          <>
+            <div className="mb-6 flex items-center gap-3">
+              <button onClick={() => setStep("name")} className="text-gray-400 hover:text-gray-700 text-sm">
+                ← Volver
+              </button>
+              <p className="text-gray-500">
+                Hola <strong className="text-gray-900">{name}</strong>, elegí tu pedido:
+              </p>
+            </div>
+            <div className="grid grid-cols-1 sm:grid-cols-2 md:grid-cols-4 gap-4">
+              {MENU_ITEMS.map((item) => (
+                <MenuCard
+                  key={item.id}
+                  item={item}
+                  onClick={() => handleSelectItem(item)}
+                />
+              ))}
+            </div>
+          </>
+        )}
+
+        {step === "confirm" && selected && (
+          <div className="bg-white rounded-2xl border border-gray-100 shadow-sm overflow-hidden max-w-md mx-auto">
+            <div className="relative h-52 bg-gray-50">
+              <Image
+                src={selected.photo_url}
+                alt={selected.name}
+                fill
+                className="object-contain p-4"
+              />
+            </div>
+            <div className="p-8">
+              <h2 className="text-xl font-semibold text-gray-900 mb-1">Confirmá tu pedido</h2>
+              <p className="text-gray-400 text-sm mb-6">Revisá antes de confirmar</p>
+              <div className="bg-gray-50 rounded-xl p-4 mb-4 border border-gray-100">
+                <p className="text-xs text-gray-400 uppercase tracking-wide mb-1">Pedido para</p>
+                <p className="font-semibold text-gray-900 text-lg">{name}</p>
+                <div className="mt-3 pt-3 border-t border-gray-100">
+                  <div className="flex items-start justify-between gap-2">
+                    <div>
+                      <p className="text-xs text-gray-400 uppercase tracking-wide mb-1">Ítem</p>
+                      <p className="font-semibold text-gray-900">{selected.name}</p>
+                      <p className="text-gray-400 text-sm">{selected.description}</p>
+                      <p className="text-gray-500 text-sm shrink-0">${selected.price.toLocaleString()} aprox</p>
+                    </div>
+                  </div>
+                </div>
+              </div>
+
+              {selected.bread && (
+                <div className="mb-4">
+                  <label className="block text-sm font-medium text-gray-600 mb-2">
+                    Tipo de pan <span className="text-red-400">*</span>
+                  </label>
+                  <div className="flex flex-wrap gap-2">
+                    {selected.bread.map((option) => (
+                      <button
+                        key={option}
+                        type="button"
+                        onClick={() => setSelectedBread(option)}
+                        className={`px-4 py-2 rounded-xl text-sm font-medium border transition-colors ${
+                          selectedBread === option
+                            ? "bg-gray-900 border-gray-900 text-white"
+                            : "border-gray-200 text-gray-600 hover:border-gray-400"
+                        }`}
+                      >
+                        {option}
+                      </button>
+                    ))}
+                  </div>
+                </div>
+              )}
+
+              {selected.dressing && (
+                <div className="mb-4">
+                  <label className="block text-sm font-medium text-gray-600 mb-2">
+                    Aderezo{" "}
+                    <span className="text-gray-400 font-normal">
+                      (opcional, hasta 2{selectedDressing.length > 0 && ` — ${selectedDressing.length}/2 elegidos`})
+                    </span>
+                  </label>
+                  <div className="flex flex-wrap gap-2">
+                    {selected.dressing.map((option) => {
+                      const isSelected = selectedDressing.includes(option)
+                      const isDisabled = !isSelected && selectedDressing.length >= 2
+                      return (
+                        <button
+                          key={option}
+                          type="button"
+                          onClick={() => toggleDressing(option)}
+                          disabled={isDisabled}
+                          className={`px-4 py-2 rounded-xl text-sm font-medium border transition-colors ${
+                            isSelected
+                              ? "bg-gray-900 border-gray-900 text-white"
+                              : isDisabled
+                              ? "border-gray-100 text-gray-300 cursor-not-allowed"
+                              : "border-gray-200 text-gray-600 hover:border-gray-400"
+                          }`}
+                        >
+                          {option}
+                        </button>
+                      )
+                    })}
+                  </div>
+                </div>
+              )}
+
+              {error && <p className="text-red-400 text-sm mb-4">{error}</p>}
+              <div className="flex gap-3 mt-6">
+                <button
+                  onClick={() => setStep("menu")}
+                  className="flex-1 border border-gray-200 text-gray-500 font-semibold rounded-xl py-3 hover:bg-gray-50 transition-colors"
+                >
+                  Cambiar
+                </button>
+                <button
+                  onClick={submitOrder}
+                  disabled={loading || (!!selected.bread && !selectedBread)}
+                  className="flex-1 bg-gray-900 hover:bg-gray-700 disabled:bg-gray-100 disabled:text-gray-300 text-white font-semibold rounded-xl py-3 transition-colors"
+                >
+                  {loading ? "Enviando..." : "Confirmar ✓"}
+                </button>
+              </div>
+            </div>
+          </div>
+        )}
+
+        {step === "done" && selected && (
+          <div className="bg-white rounded-2xl border border-gray-100 shadow-sm overflow-hidden max-w-md mx-auto">
+            <div className="relative h-52 bg-gray-50">
+              <Image
+                src={selected.photo_url}
+                alt={selected.name}
+                fill
+                className="object-contain p-4"
+              />
+              <div className="absolute inset-0 bg-gradient-to-t from-white/60 to-transparent" />
+            </div>
+            <div className="px-8 pb-8 text-center">
+              <div className="text-4xl mb-3">🥪</div>
+              <h2 className="text-2xl font-bold text-gray-900 mb-1">¡Listo, {name}!</h2>
+              <p className="text-gray-500 font-medium text-lg mb-6">{selected.name}</p>
+              <blockquote className="border-l-4 border-gray-200 bg-gray-50 rounded-r-xl px-5 py-4 text-left">
+                <p className="text-gray-400 italic text-sm leading-relaxed">"{orderPhrase}"</p>
+              </blockquote>
+            </div>
+          </div>
+        )}
+      </div>
+    </main>
+  )
 }
