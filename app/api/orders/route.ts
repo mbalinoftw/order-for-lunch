@@ -1,6 +1,7 @@
 import { NextRequest, NextResponse } from "next/server"
 import { saveOrder, getOrdersForWeek, resetWeekOrders, getAndConsumeToken } from "@/lib/db"
 import { getMenuItem, MENU_ITEMS } from "@/lib/menu"
+import { sendOrderConfirmation } from "@/lib/slack"
 
 export async function GET(request: NextRequest) {
   const week = request.nextUrl.searchParams.get("week") ?? undefined
@@ -41,6 +42,17 @@ export async function POST(request: NextRequest) {
   }
 
   await saveOrder(name.trim(), item_id, selected_bread, selected_dressing, slackUserId)
+
+  if (slackUserId) {
+    sendOrderConfirmation(slackUserId, {
+      name: name.trim(),
+      itemName: item.name,
+      price: item.price,
+      bread: selected_bread,
+      dressing: selected_dressing,
+    }).catch((err) => console.error("Slack confirmation failed:", err))
+  }
+
   return NextResponse.json({ ok: true })
 }
 

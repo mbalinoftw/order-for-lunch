@@ -54,7 +54,7 @@ export async function sendMagicLink(slackUserId: string, token: string, appUrl: 
         type: "section",
         text: {
           type: "mrkdwn",
-          text: ":sandwich: *¡Hora del pedido!*\nTu link es personal — hacé click para elegir tu sánguche.",
+          text: ":sandwich: *¡Hora del pedido!*\nTu link es personal — entrá y elegí tu sangucheto, rey.",
         },
       },
       {
@@ -62,13 +62,64 @@ export async function sendMagicLink(slackUserId: string, token: string, appUrl: 
         elements: [
           {
             type: "button",
-            text: { type: "plain_text", text: "Hacer mi pedido", emoji: true },
+            text: { type: "plain_text", text: "Cargar mi pedido", emoji: true },
             style: "primary",
             url,
           },
         ],
       },
     ],
+  })
+}
+
+export async function sendOrderConfirmation(
+  slackUserId: string,
+  order: {
+    name: string
+    itemName: string
+    price: number
+    bread?: string
+    dressing?: string[]
+  },
+): Promise<void> {
+  const bankInfo = process.env.BANK_INFO
+  const extras = [
+    order.bread ? `Pan: ${order.bread}` : null,
+    order.dressing?.length ? `Aderezo: ${order.dressing.join(", ")}` : null,
+  ]
+    .filter(Boolean)
+    .join("\n")
+
+  // eslint-disable-next-line @typescript-eslint/no-explicit-any
+  const blocks: any[] = [
+    {
+      type: "header",
+      text: { type: "plain_text", text: `✅ ¡Pedido confirmado, ${order.name}!`, emoji: true },
+    },
+    {
+      type: "section",
+      text: {
+        type: "mrkdwn",
+        text: `*:sandwich: ${order.itemName}*  —  $${order.price.toLocaleString("es-AR")}${extras ? `\n${extras}` : ""}`,
+      },
+    },
+  ]
+
+  if (bankInfo) {
+    blocks.push({ type: "divider" })
+    blocks.push({
+      type: "section",
+      text: {
+        type: "mrkdwn",
+        text: `:credit_card: *Datos para la transferencia:*\n${bankInfo}`,
+      },
+    })
+  }
+
+  await slackApp.client.chat.postMessage({
+    channel: slackUserId,
+    text: `✅ Pedido confirmado: ${order.itemName} — $${order.price.toLocaleString("es-AR")}`,
+    blocks,
   })
 }
 
