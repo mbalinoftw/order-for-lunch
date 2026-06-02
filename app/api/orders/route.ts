@@ -1,5 +1,5 @@
 import { NextRequest, NextResponse } from "next/server"
-import { saveOrder, getOrdersForWeek, resetWeekOrders, validateToken, consumeToken } from "@/lib/db"
+import { saveOrder, getOrdersForWeek, resetWeekOrders, getAndConsumeToken } from "@/lib/db"
 import { getMenuItem, MENU_ITEMS } from "@/lib/menu"
 
 export async function GET(request: NextRequest) {
@@ -33,12 +33,11 @@ export async function POST(request: NextRequest) {
 
   let slackUserId: string | undefined
   if (token) {
-    const payload = await validateToken(token)
+    const payload = await getAndConsumeToken(token)
     if (!payload) {
       return NextResponse.json({ error: "Tu link expiró. Pedile uno nuevo al coordinador." }, { status: 401 })
     }
     slackUserId = payload.slack_user_id
-    await consumeToken(token)
   }
 
   await saveOrder(name.trim(), item_id, selected_bread, selected_dressing, slackUserId)

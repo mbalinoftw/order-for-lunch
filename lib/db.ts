@@ -5,12 +5,13 @@ import type { MenuItem, MagicTokenPayload, Order, OrdersMap, TeamMember } from "
 const redis = Redis.fromEnv()
 
 function weekKey(): string {
-  const now = new Date()
-  const year = now.getFullYear()
-  const startOfYear = new Date(year, 0, 1)
-  const dayOfYear = Math.ceil((now.getTime() - startOfYear.getTime()) / 86400000)
-  const week = Math.ceil((dayOfYear + startOfYear.getDay()) / 7)
-  return `${year}-${String(week).padStart(2, "0")}`
+  const d = new Date()
+  d.setHours(0, 0, 0, 0)
+  // ISO 8601: shift to the Thursday of the current week, then compute week number
+  d.setDate(d.getDate() + 4 - (d.getDay() || 7))
+  const yearStart = new Date(d.getFullYear(), 0, 1)
+  const week = Math.ceil(((d.getTime() - yearStart.getTime()) / 86400000 + 1) / 7)
+  return `${d.getFullYear()}-${String(week).padStart(2, "0")}`
 }
 
 export async function saveOrder(
@@ -60,8 +61,14 @@ export async function validateToken(token: string): Promise<MagicTokenPayload | 
   }
 }
 
-export async function consumeToken(token: string): Promise<void> {
-  await redis.del(`token:${token}`)
+export async function getAndConsumeToken(token: string): Promise<MagicTokenPayload | null> {
+  const raw = await redis.getdel<string>(`token:${token}`)
+  if (!raw) return null
+  try {
+    return typeof raw === "string" ? JSON.parse(raw) : (raw as MagicTokenPayload)
+  } catch {
+    return null
+  }
 }
 
 export async function getOrdersForWeek(week?: string): Promise<OrdersMap> {
