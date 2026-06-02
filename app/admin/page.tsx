@@ -13,6 +13,8 @@ export default function AdminPage() {
   const [reminding, setReminding] = useState(false)
   const [reminderResult, setReminderResult] = useState("")
   const [resetting, setResetting] = useState(false)
+  const [announcing, setAnnouncing] = useState(false)
+  const [announceResult, setAnnounceResult] = useState("")
   const [sendingLinks, setSendingLinks] = useState(false)
   const [linksResult, setLinksResult] = useState("")
   const [showLinksModal, setShowLinksModal] = useState(false)
@@ -48,6 +50,23 @@ export default function AdminPage() {
       setReminderResult("❌ Error al enviar recordatorios")
     } finally {
       setReminding(false)
+    }
+  }
+
+  async function announceInChannel() {
+    setAnnouncing(true)
+    setAnnounceResult("")
+    try {
+      const res = await fetch("/api/slack/announce", { method: "POST" })
+      if (res.ok) {
+        setAnnounceResult("✅ Anuncio publicado en el canal")
+      } else {
+        setAnnounceResult("❌ Error al publicar el anuncio")
+      }
+    } catch {
+      setAnnounceResult("❌ Error al publicar el anuncio")
+    } finally {
+      setAnnouncing(false)
     }
   }
 
@@ -182,6 +201,16 @@ export default function AdminPage() {
 
         <div className="bg-white rounded-2xl border border-gray-100 shadow-sm p-6 space-y-3">
           <h2 className="font-semibold text-gray-900 mb-4">Acciones</h2>
+          <button
+            onClick={announceInChannel}
+            disabled={announcing}
+            className="w-full bg-gray-100 hover:bg-gray-200 disabled:opacity-50 text-gray-700 font-semibold rounded-xl py-3 transition-colors"
+          >
+            {announcing ? "Publicando..." : "📣 Anunciar en el canal de Slack"}
+          </button>
+          {announceResult && (
+            <p className="text-sm text-gray-500 bg-gray-50 rounded-xl px-4 py-3">{announceResult}</p>
+          )}
           <button
             onClick={openLinksModal}
             disabled={sendingLinks}
