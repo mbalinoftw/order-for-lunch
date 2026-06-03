@@ -16,7 +16,7 @@ export function MenuCard({ item, onClick }: MenuCardProps) {
   return (
     <button
       onClick={onClick}
-      className="bg-white rounded-2xl border border-gray-100 shadow-sm overflow-hidden text-left hover:shadow-md hover:ring-2 hover:ring-gray-200 transition-all group w-full cursor-pointer flex flex-col h-full"
+      className="hover:translate-y-[-2px] duration-300 bg-white rounded-2xl border border-gray-100 shadow-sm overflow-hidden text-left hover:shadow-md hover:ring-2 hover:ring-gray-200 transition-all group w-full cursor-pointer flex flex-col h-full"
     >
       <div className="relative h-48 bg-gray-50 flex items-center justify-center p-3">
         {hasPhoto ? (
@@ -24,7 +24,7 @@ export function MenuCard({ item, onClick }: MenuCardProps) {
             src={item.photo_url}
             alt={item.name}
             fill
-            className="object-contain group-hover:scale-105 transition-transform duration-300 p-3"
+            className="object-cover p-3"
             sizes="(max-width: 768px) 100vw, (max-width: 1200px) 50vw, 33vw"
             onError={() => setImgError(true)}
           />
