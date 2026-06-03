@@ -1,5 +1,5 @@
 import { NextRequest, NextResponse } from "next/server"
-import { getTeamMembers, getOrdersForDay, getSkippedUsers } from "@/lib/db"
+import { getTeamMembers, getOrdersForDay, getSkippedUsers, teamMemberHasOrdered } from "@/lib/db"
 import { sendReminder } from "@/lib/slack"
 
 export async function POST(request: NextRequest) {
@@ -11,12 +11,11 @@ export async function POST(request: NextRequest) {
   const [members, orders, skipped] = await Promise.all([
     getTeamMembers(), getOrdersForDay(), getSkippedUsers()
   ])
-  const orderedKeys = new Set(Object.keys(orders))
   const skippedSet = new Set(skipped)
 
   const appUrl = process.env.NEXT_PUBLIC_APP_URL ?? "http://localhost:3000"
   const pending = members.filter(
-    (m) => !orderedKeys.has(m.name.toLowerCase()) && !skippedSet.has(m.slack_user_id)
+    (m) => !teamMemberHasOrdered(m, orders) && !skippedSet.has(m.slack_user_id)
   )
 
   const results = await Promise.allSettled(

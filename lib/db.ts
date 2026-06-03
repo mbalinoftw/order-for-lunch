@@ -28,6 +28,12 @@ export async function saveOrder(
   await redis.hset(key, { [hashField]: JSON.stringify(order) })
 }
 
+export function teamMemberHasOrdered(member: TeamMember, orders: OrdersMap): boolean {
+  if (member.slack_user_id in orders) return true
+  if (member.name.toLowerCase() in orders) return true
+  return Object.values(orders).some((o) => o.slack_user_id === member.slack_user_id)
+}
+
 export async function generateTokensForTeam(
   filterIds?: string[],
 ): Promise<Map<string, string>> {
