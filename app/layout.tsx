@@ -16,6 +16,7 @@ const geistMono = Geist_Mono({
 export const metadata: Metadata = {
   title: "Pedido Sangucheto",
   description: "Elegí tu sánguche de hoy",
+  manifest: "/site.webmanifest",
 };
 
 export default function RootLayout({
