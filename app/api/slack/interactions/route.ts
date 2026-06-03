@@ -1,5 +1,6 @@
 import { NextRequest, NextResponse } from "next/server"
 import { skipUser } from "@/lib/db"
+import { getOptOutPhrase } from "@/lib/order"
 import { slackApp } from "@/lib/slack"
 
 async function verifySlackSignature(request: NextRequest, rawBody: string): Promise<boolean> {
@@ -33,20 +34,72 @@ export async function POST(request: NextRequest) {
 
   if (payload.type === "block_actions") {
     const action = payload.actions?.[0]
-    if (action?.action_id === "opt_out_order") {
+    if (action?.action_id === "remind_later") {
       const slackUserId: string = payload.user.id
-      await skipUser(slackUserId)
 
-      await slackApp.client.chat.update({
-        channel: payload.channel.id,
-        ts: payload.message.ts,
-        text: "✅ Anotado. No te vamos a molestar más esta semana.",
+      // Extraer la URL del pedido del botón original para incluirla en el recordatorio
+      // eslint-disable-next-line @typescript-eslint/no-explicit-any
+      const actionsBlock = payload.message.blocks?.find((b: any) => b.type === "actions")
+      // eslint-disable-next-line @typescript-eslint/no-explicit-any
+      const orderUrl: string = actionsBlock?.elements?.find((e: any) => e.url)?.url ?? ""
+
+      const postAt = Math.floor(Date.now() / 1000) + 900 // 15 minutos
+
+      await slackApp.client.chat.scheduleMessage({
+        channel: slackUserId,
+        post_at: postAt,
+        text: `:alarm_clock: *¡No te olvides del pedido!* Tu link sigue siendo válido: ${orderUrl}`,
         blocks: [
           {
             type: "section",
             text: {
               type: "mrkdwn",
-              text: "✅ *Anotado.* No te vamos a molestar más esta semana. 🫡",
+              text: ":alarm_clock: *¡No te olvides del pedido!*\nTe lo dejamos acá para que no tengas excusa.",
+            },
+          },
+          {
+            type: "actions",
+            elements: [
+              {
+                type: "button",
+                text: { type: "plain_text", text: "Cargar mi pedido", emoji: true },
+                style: "primary",
+                url: orderUrl,
+              },
+            ],
+          },
+        ],
+      })
+
+      await slackApp.client.chat.update({
+        channel: payload.channel.id,
+        ts: payload.message.ts,
+        text: "⏰ Te mando un recordatorio en 15 minutos.",
+        blocks: [
+          {
+            type: "section",
+            text: { type: "mrkdwn", text: "⏰ Dale, te mando un recordatorio en 15 minutos. No te duermas :index_pointing_at_the_viewer:." },
+          },
+        ],
+      })
+    }
+
+    if (action?.action_id === "opt_out_order") {
+      const slackUserId: string = payload.user.id
+      await skipUser(slackUserId)
+
+      const phrase = getOptOutPhrase()
+
+      await slackApp.client.chat.update({
+        channel: payload.channel.id,
+        ts: payload.message.ts,
+        text: `✅ ${phrase.replaceAll("*", "")}`,
+        blocks: [
+          {
+            type: "section",
+            text: {
+              type: "mrkdwn",
+              text: `✅ ${phrase}`,
             },
           },
         ],
