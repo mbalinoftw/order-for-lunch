@@ -14,7 +14,7 @@ export default function SummaryPage() {
     setLoading(true)
     const res = await fetch("/api/orders")
     const data = await res.json()
-    setOrders(data)
+    setOrders(data.orders ?? data)
     setLoading(false)
   }, [])
 
