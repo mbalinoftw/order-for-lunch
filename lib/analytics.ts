@@ -1,13 +1,8 @@
 import { track } from "@vercel/analytics"
 import type { MenuItem } from "./types"
 
-function getWeekKey(): string {
-  const d = new Date()
-  d.setHours(0, 0, 0, 0)
-  d.setDate(d.getDate() + 4 - (d.getDay() || 7))
-  const yearStart = new Date(d.getFullYear(), 0, 1)
-  const week = Math.ceil(((d.getTime() - yearStart.getTime()) / 86400000 + 1) / 7)
-  return `${d.getFullYear()}-${String(week).padStart(2, "0")}`
+function getDayKey(): string {
+  return new Date().toISOString().slice(0, 10)
 }
 
 export function trackItemClicked(
@@ -22,7 +17,7 @@ export function trackItemClicked(
     is_veggie: item.veggie ?? false,
     user_name: userName,
     slack_user_id: slackUserId,
-    week: getWeekKey(),
+    day: getDayKey(),
   })
 }
 
@@ -42,7 +37,7 @@ export function trackOrderConfirmed(
     dressings: dressings.length > 0 ? JSON.stringify(dressings) : null,
     user_name: userName,
     slack_user_id: slackUserId,
-    week: getWeekKey(),
+    day: getDayKey(),
     used_magic_link: usedMagicLink,
   })
 }
@@ -56,7 +51,7 @@ export function trackStepChanged(
     from_step: fromStep,
     to_step: toStep,
     user_name: userName,
-    week: getWeekKey(),
+    day: getDayKey(),
   })
 }
 
@@ -69,7 +64,7 @@ export function trackSortChanged(
     sort_key: sortKey,
     previous_sort: previousSort,
     user_name: userName,
-    week: getWeekKey(),
+    day: getDayKey(),
   })
 }
 
@@ -80,7 +75,7 @@ export function trackMagicLinkUsed(
   track("magic_link_used", {
     user_name: userName,
     slack_user_id: slackUserId,
-    week: getWeekKey(),
+    day: getDayKey(),
   })
 }
 
@@ -93,7 +88,7 @@ export function trackOrderError(
     error_message: errorMessage,
     item_id: itemId,
     user_name: userName,
-    week: getWeekKey(),
+    day: getDayKey(),
   })
 }
 
@@ -106,7 +101,7 @@ export function trackBreadSelected(
     item_id: itemId,
     bread,
     user_name: userName,
-    week: getWeekKey(),
+    day: getDayKey(),
   })
 }
 
@@ -123,6 +118,6 @@ export function trackDressingToggled(
     action,
     user_name: userName,
     slack_user_id: slackUserId,
-    week: getWeekKey(),
+    day: getDayKey(),
   })
 }

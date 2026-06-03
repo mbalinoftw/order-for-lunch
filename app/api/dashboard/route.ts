@@ -1,5 +1,5 @@
 import { NextRequest, NextResponse } from "next/server"
-import { getAllWeeksData, getTeamMembers } from "@/lib/db"
+import { getAllDaysData, getTeamMembers } from "@/lib/db"
 import { MENU_ITEMS, getMenuItem } from "@/lib/menu"
 import { isValidAdminCookie, ADMIN_COOKIE } from "@/lib/auth"
 
@@ -10,7 +10,7 @@ export async function GET(request: NextRequest) {
     return NextResponse.json({ error: "Unauthorized" }, { status: 401 })
   }
 
-  const [weeksData, teamMembers] = await Promise.all([getAllWeeksData(), getTeamMembers()])
+  const [daysData, teamMembers] = await Promise.all([getAllDaysData(), getTeamMembers()])
   const teamSize = teamMembers.length
 
   // ── A. Popularidad del menú ──────────────────────────────────────────
@@ -18,7 +18,7 @@ export async function GET(request: NextRequest) {
   const breadCounts: Record<string, number> = {}
   const dressingCounts: Record<string, number> = {}
 
-  for (const { orders } of weeksData) {
+  for (const { orders } of daysData) {
     for (const order of Object.values(orders)) {
       itemCounts[order.item_id] = (itemCounts[order.item_id] ?? 0) + 1
       if (order.selected_bread) {
@@ -48,8 +48,8 @@ export async function GET(request: NextRequest) {
     .sort((a, b) => b.count - a.count)
     .slice(0, 5)
 
-  // ── B. Participación semanal ─────────────────────────────────────────
-  const weekly_participation = weeksData.map(({ week, orders, skipped }) => {
+  // ── B. Participación diaria ──────────────────────────────────────────
+  const daily_participation = daysData.map(({ day, orders, skipped }) => {
     const ordered = Object.keys(orders).length
     const skippedCount = skipped.length
     const no_response = Math.max(0, teamSize - ordered - skippedCount)
@@ -57,13 +57,13 @@ export async function GET(request: NextRequest) {
       const item = getMenuItem(o.item_id)
       return sum + (item?.price ?? 0)
     }, 0)
-    return { week, ordered, skipped: skippedCount, no_response, total: teamSize, spend }
+    return { day, ordered, skipped: skippedCount, no_response, total: teamSize, spend }
   })
 
-  const avgParticipation = weekly_participation.length > 0
+  const avgParticipation = daily_participation.length > 0
     ? Math.round(
-        weekly_participation.reduce((s, w) => s + (teamSize > 0 ? w.ordered / teamSize : 0), 0)
-        / weekly_participation.length * 100
+        daily_participation.reduce((s, w) => s + (teamSize > 0 ? w.ordered / teamSize : 0), 0)
+        / daily_participation.length * 100
       )
     : 0
 
@@ -73,11 +73,11 @@ export async function GET(request: NextRequest) {
     itemCounts: Record<string, number>
     breadCounts: Record<string, number>
     dressingCounts: Record<string, number>
-    weeksParticipated: Set<string>
+    daysParticipated: Set<string>
     totalOrders: number
   }> = {}
 
-  for (const { week, orders } of weeksData) {
+  for (const { day, orders } of daysData) {
     for (const order of Object.values(orders)) {
       const key = order.slack_user_id ?? order.name.toLowerCase()
       if (!userMap[key]) {
@@ -86,13 +86,13 @@ export async function GET(request: NextRequest) {
           itemCounts: {},
           breadCounts: {},
           dressingCounts: {},
-          weeksParticipated: new Set(),
+          daysParticipated: new Set(),
           totalOrders: 0,
         }
       }
       const u = userMap[key]
       u.totalOrders++
-      u.weeksParticipated.add(week)
+      u.daysParticipated.add(day)
       u.itemCounts[order.item_id] = (u.itemCounts[order.item_id] ?? 0) + 1
       if (order.selected_bread) {
         u.breadCounts[order.selected_bread] = (u.breadCounts[order.selected_bread] ?? 0) + 1
@@ -114,7 +114,7 @@ export async function GET(request: NextRequest) {
     return {
       name: u.name,
       total_orders: u.totalOrders,
-      weeks_participated: u.weeksParticipated.size,
+      days_participated: u.daysParticipated.size,
       favorite_item: getMenuItem(favoriteItemId)?.name ?? favoriteItemId,
       variety_index: varietyIndex,
       favorite_bread: favoriteBread ?? null,
@@ -123,25 +123,25 @@ export async function GET(request: NextRequest) {
   }).sort((a, b) => b.total_orders - a.total_orders)
 
   // ── Summary ──────────────────────────────────────────────────────────
-  const mostExpensiveWeek = weekly_participation.reduce(
+  const mostExpensiveDay = daily_participation.reduce(
     (max, w) => (w.spend > (max?.spend ?? 0) ? w : max),
-    weekly_participation[0] ?? null
+    daily_participation[0] ?? null
   )
 
   const summary = {
-    total_weeks: weeksData.length,
+    total_days: daysData.length,
     total_orders: totalOrders,
     avg_participation_pct: avgParticipation,
     most_popular_item: menu_ranking[0]?.name ?? null,
-    most_expensive_week: mostExpensiveWeek?.week ?? null,
-    most_expensive_week_spend: mostExpensiveWeek?.spend ?? 0,
+    most_expensive_day: mostExpensiveDay?.day ?? null,
+    most_expensive_day_spend: mostExpensiveDay?.spend ?? 0,
   }
 
   return NextResponse.json({
     menu_ranking,
     bread_ranking,
     dressing_ranking,
-    weekly_participation,
+    daily_participation,
     user_profiles,
     summary,
   })

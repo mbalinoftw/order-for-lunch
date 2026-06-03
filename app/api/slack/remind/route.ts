@@ -1,5 +1,5 @@
 import { NextRequest, NextResponse } from "next/server"
-import { getTeamMembers, getOrdersForWeek, getSkippedUsers } from "@/lib/db"
+import { getTeamMembers, getOrdersForDay, getSkippedUsers } from "@/lib/db"
 import { sendReminder } from "@/lib/slack"
 
 export async function POST(request: NextRequest) {
@@ -9,7 +9,7 @@ export async function POST(request: NextRequest) {
   }
 
   const [members, orders, skipped] = await Promise.all([
-    getTeamMembers(), getOrdersForWeek(), getSkippedUsers()
+    getTeamMembers(), getOrdersForDay(), getSkippedUsers()
   ])
   const orderedKeys = new Set(Object.keys(orders))
   const skippedSet = new Set(skipped)

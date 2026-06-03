@@ -1,11 +1,11 @@
 import { NextRequest, NextResponse } from "next/server"
-import { saveOrder, getOrdersForWeek, resetWeekOrders, getAndConsumeToken } from "@/lib/db"
+import { saveOrder, getOrdersForDay, resetDayOrders, getAndConsumeToken } from "@/lib/db"
 import { getMenuItem, MENU_ITEMS } from "@/lib/menu"
 import { sendOrderConfirmation } from "@/lib/slack"
 
 export async function GET(request: NextRequest) {
-  const week = request.nextUrl.searchParams.get("week") ?? undefined
-  const orders = await getOrdersForWeek(week)
+  const day = request.nextUrl.searchParams.get("day") ?? undefined
+  const orders = await getOrdersForDay(day)
   return NextResponse.json(orders)
 }
 
@@ -62,7 +62,7 @@ export async function DELETE(request: NextRequest) {
     return NextResponse.json({ error: "Unauthorized" }, { status: 401 })
   }
 
-  const week = request.nextUrl.searchParams.get("week") ?? undefined
-  await resetWeekOrders(week)
+  const day = request.nextUrl.searchParams.get("day") ?? undefined
+  await resetDayOrders(day)
   return NextResponse.json({ ok: true })
 }

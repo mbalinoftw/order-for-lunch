@@ -4,14 +4,8 @@ import type { MenuItem, MagicTokenPayload, Order, OrdersMap, TeamMember } from "
 
 const redis = Redis.fromEnv()
 
-function weekKey(): string {
-  const d = new Date()
-  d.setHours(0, 0, 0, 0)
-  // ISO 8601: shift to the Thursday of the current week, then compute week number
-  d.setDate(d.getDate() + 4 - (d.getDay() || 7))
-  const yearStart = new Date(d.getFullYear(), 0, 1)
-  const week = Math.ceil(((d.getTime() - yearStart.getTime()) / 86400000 + 1) / 7)
-  return `${d.getFullYear()}-${String(week).padStart(2, "0")}`
+function dayKey(): string {
+  return new Date().toISOString().slice(0, 10)
 }
 
 export async function saveOrder(
@@ -21,7 +15,7 @@ export async function saveOrder(
   selectedDressing?: string[],
   slackUserId?: string,
 ): Promise<void> {
-  const key = `orders:${weekKey()}`
+  const key = `orders:${dayKey()}`
   const order: Order = {
     name: personName,
     ...(slackUserId && { slack_user_id: slackUserId }),
@@ -71,8 +65,8 @@ export async function getAndConsumeToken(token: string): Promise<MagicTokenPaylo
   }
 }
 
-export async function getOrdersForWeek(week?: string): Promise<OrdersMap> {
-  const key = `orders:${week ?? weekKey()}`
+export async function getOrdersForDay(day?: string): Promise<OrdersMap> {
+  const key = `orders:${day ?? dayKey()}`
   const raw = await redis.hgetall<Record<string, string>>(key)
   if (!raw) return {}
 
@@ -88,12 +82,12 @@ export async function getOrdersForWeek(week?: string): Promise<OrdersMap> {
 }
 
 export async function deleteOrder(personName: string): Promise<void> {
-  const key = `orders:${weekKey()}`
+  const key = `orders:${dayKey()}`
   await redis.hdel(key, personName.toLowerCase())
 }
 
-export async function resetWeekOrders(week?: string): Promise<void> {
-  const key = `orders:${week ?? weekKey()}`
+export async function resetDayOrders(day?: string): Promise<void> {
+  const key = `orders:${day ?? dayKey()}`
   await redis.del(key)
 }
 
@@ -115,20 +109,20 @@ export async function saveTeamMembers(members: TeamMember[]): Promise<void> {
 }
 
 export async function skipUser(slackUserId: string): Promise<void> {
-  await redis.sadd(`skipped:${weekKey()}`, slackUserId)
+  await redis.sadd(`skipped:${dayKey()}`, slackUserId)
 }
 
 export async function getSkippedUsers(): Promise<string[]> {
-  return redis.smembers(`skipped:${weekKey()}`)
+  return redis.smembers(`skipped:${dayKey()}`)
 }
 
-export interface WeekSnapshot {
-  week: string
+export interface DaySnapshot {
+  day: string
   orders: OrdersMap
   skipped: string[]
 }
 
-export async function getAllWeeksData(): Promise<WeekSnapshot[]> {
+export async function getAllDaysData(): Promise<DaySnapshot[]> {
   const orderKeys: string[] = []
   let cursor = 0
   do {
@@ -139,21 +133,21 @@ export async function getAllWeeksData(): Promise<WeekSnapshot[]> {
 
   if (orderKeys.length === 0) return []
 
-  const weeks = orderKeys
+  const days = orderKeys
     .map((k) => k.replace("orders:", ""))
     .sort((a, b) => b.localeCompare(a))
 
   const snapshots = await Promise.all(
-    weeks.map(async (week) => {
+    days.map(async (day) => {
       const [orders, skipped] = await Promise.all([
-        getOrdersForWeek(week),
-        redis.smembers(`skipped:${week}`) as Promise<string[]>,
+        getOrdersForDay(day),
+        redis.smembers(`skipped:${day}`) as Promise<string[]>,
       ])
-      return { week, orders, skipped }
+      return { day, orders, skipped }
     })
   )
 
   return snapshots
 }
 
-export { weekKey }
+export { dayKey }

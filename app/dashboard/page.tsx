@@ -5,15 +5,15 @@ import Link from "next/link"
 
 interface MenuRankingItem { item_id: string; name: string; count: number; percentage: number }
 interface RankingItem { option: string; count: number }
-interface WeeklyRow { week: string; ordered: number; skipped: number; no_response: number; total: number; spend: number }
-interface UserProfile { name: string; total_orders: number; weeks_participated: number; favorite_item: string; variety_index: number | null; favorite_bread: string | null; favorite_dressing: string | null }
-interface Summary { total_weeks: number; total_orders: number; avg_participation_pct: number; most_popular_item: string | null; most_expensive_week: string | null; most_expensive_week_spend: number }
+interface DailyRow { day: string; ordered: number; skipped: number; no_response: number; total: number; spend: number }
+interface UserProfile { name: string; total_orders: number; days_participated: number; favorite_item: string; variety_index: number | null; favorite_bread: string | null; favorite_dressing: string | null }
+interface Summary { total_days: number; total_orders: number; avg_participation_pct: number; most_popular_item: string | null; most_expensive_day: string | null; most_expensive_day_spend: number }
 
 interface DashboardData {
   menu_ranking: MenuRankingItem[]
   bread_ranking: RankingItem[]
   dressing_ranking: RankingItem[]
-  weekly_participation: WeeklyRow[]
+  daily_participation: DailyRow[]
   user_profiles: UserProfile[]
   summary: Summary
 }
@@ -72,18 +72,18 @@ export default function DashboardPage() {
           </div>
         )}
 
-        {!loading && !data?.summary.total_weeks && (
+        {!loading && !data?.summary.total_days && (
           <div className="bg-white rounded-2xl border border-gray-100 shadow-sm p-8 text-center text-gray-400">
             Todavía no hay datos históricos suficientes.
           </div>
         )}
 
-        {!loading && data && data.summary.total_weeks > 0 && (
+        {!loading && data && data.summary.total_days > 0 && (
           <>
             {/* Summary cards */}
             <div className="grid grid-cols-2 sm:grid-cols-4 gap-4">
               {[
-                { label: "Semanas registradas", value: data.summary.total_weeks },
+                { label: "Días registrados", value: data.summary.total_days },
                 { label: "Pedidos totales", value: data.summary.total_orders },
                 { label: "Participación promedio", value: `${data.summary.avg_participation_pct}%` },
                 { label: "Ítem más pedido", value: data.summary.most_popular_item ?? "—" },
@@ -142,14 +142,14 @@ export default function DashboardPage() {
               )}
             </div>
 
-            {/* B. Participación semanal */}
+            {/* B. Participación diaria */}
             <div className="bg-white rounded-2xl border border-gray-100 shadow-sm p-6">
-              <h2 className="font-semibold text-gray-900 mb-4">📅 Participación semanal</h2>
+              <h2 className="font-semibold text-gray-900 mb-4">📅 Participación diaria</h2>
               <div className="overflow-x-auto">
                 <table className="w-full text-sm">
                   <thead>
                     <tr className="text-xs text-gray-400 border-b border-gray-100">
-                      <th className="text-left pb-2 font-medium">Semana</th>
+                      <th className="text-left pb-2 font-medium">Día</th>
                       <th className="text-center pb-2 font-medium">Participación</th>
                       <th className="text-center pb-2 font-medium">Pedidos</th>
                       <th className="text-center pb-2 font-medium">Opt-outs</th>
@@ -158,12 +158,12 @@ export default function DashboardPage() {
                     </tr>
                   </thead>
                   <tbody>
-                    {data.weekly_participation.map((row) => {
+                    {data.daily_participation.map((row) => {
                       const pct = row.total > 0 ? Math.round((row.ordered / row.total) * 100) : 0
                       const { color } = { color: participationColor(pct) }
                       return (
-                        <tr key={row.week} className="border-b border-gray-50 last:border-0">
-                          <td className="py-2 text-gray-600 font-mono text-xs">{row.week}</td>
+                        <tr key={row.day} className="border-b border-gray-50 last:border-0">
+                          <td className="py-2 text-gray-600 font-mono text-xs">{row.day}</td>
                           <td className="py-2 text-center">
                             <span className={`text-xs font-semibold px-2 py-0.5 rounded-full ${color}`}>
                               {pct}%
@@ -179,10 +179,10 @@ export default function DashboardPage() {
                   </tbody>
                 </table>
               </div>
-              {data.summary.most_expensive_week && (
+              {data.summary.most_expensive_day && (
                 <p className="text-xs text-gray-400 mt-3">
-                  Semana más cara: <span className="font-medium text-gray-600">{data.summary.most_expensive_week}</span>
-                  {" "}— ${data.summary.most_expensive_week_spend.toLocaleString("es-AR")}
+                  Día más caro: <span className="font-medium text-gray-600">{data.summary.most_expensive_day}</span>
+                  {" "}— ${data.summary.most_expensive_day_spend.toLocaleString("es-AR")}
                 </p>
               )}
             </div>
@@ -203,7 +203,7 @@ export default function DashboardPage() {
                         Favorito: <span className="text-gray-700 font-medium">{u.favorite_item}</span>
                       </p>
                       <p className="text-sm text-gray-500 mb-2">
-                        Participó en <span className="text-gray-700 font-medium">{u.weeks_participated}</span> semanas
+                        Participó en <span className="text-gray-700 font-medium">{u.days_participated}</span> días
                         {" "}({u.total_orders} pedidos)
                       </p>
                       {(u.favorite_bread || u.favorite_dressing) && (

@@ -120,7 +120,7 @@ export default function AdminPage() {
   }
 
   async function resetOrders() {
-    if (!confirm("¿Seguro que querés borrar todos los pedidos de esta semana?")) return
+    if (!confirm("¿Seguro que querés borrar todos los pedidos del día?")) return
     setResetting(true)
     await fetch("/api/orders", {
       method: "DELETE",
@@ -142,7 +142,7 @@ export default function AdminPage() {
       <header className="bg-white border-b border-gray-100 px-6 py-4 flex items-center justify-between">
         <div>
           <h1 className="text-xl font-bold text-gray-900">Panel de coordinador</h1>
-          <p className="text-sm text-gray-400">Gestión del almuerzo semanal</p>
+          <p className="text-sm text-gray-400">Gestión del almuerzo diario</p>
         </div>
         <div className="flex items-center gap-4">
           <Link href="/dashboard" className="text-sm text-gray-400 hover:text-gray-700">
@@ -171,7 +171,7 @@ export default function AdminPage() {
             <>
               <p className="text-3xl font-bold text-gray-900 mb-1">{totalCount}</p>
               <p className="text-gray-400 text-sm">
-                {totalCount === 1 ? "persona ordenó" : "personas ordenaron"} esta semana
+                {totalCount === 1 ? "persona ordenó" : "personas ordenaron"} hoy
               </p>
             </>
           )}
@@ -245,7 +245,7 @@ export default function AdminPage() {
             disabled={resetting || totalCount === 0}
             className="w-full border border-red-200 text-red-400 hover:bg-red-50 disabled:opacity-40 font-semibold rounded-xl py-3 transition-colors"
           >
-            {resetting ? "Borrando..." : "🗑️ Resetear pedidos de esta semana"}
+            {resetting ? "Borrando..." : "🗑️ Resetear pedidos del día"}
           </button>
         </div>
       </div>
