@@ -6,6 +6,16 @@ import { MENU_ITEMS } from "@/lib/menu";
 import type { MenuItem } from "@/lib/types";
 import { MenuCard } from "./components/MenuCard";
 import { getOrderPhrase } from "@/lib/order";
+import {
+  trackItemClicked,
+  trackOrderConfirmed,
+  trackStepChanged,
+  trackSortChanged,
+  trackMagicLinkUsed,
+  trackOrderError,
+  trackBreadSelected,
+  trackDressingToggled,
+} from "@/lib/analytics";
 
 type Step = "name" | "menu" | "confirm" | "done";
 
@@ -22,6 +32,7 @@ export default function OrderPage() {
   const [selectedDressing, setSelectedDressing] = useState<string[]>([]);
   const [orderPhrase, setOrderPhrase] = useState("");
   const [sortBy, setSortBy] = useState<"default" | "price" | "name">("default");
+  const [slackUserId, setSlackUserId] = useState<string | null>(null);
   const tokenChecked = useRef(false);
 
   useEffect(() => {
@@ -32,10 +43,13 @@ export default function OrderPage() {
     if (!t) return;
     fetch(`/api/auth/token?token=${t}`)
       .then((res) => (res.ok ? res.json() : Promise.reject()))
-      .then((data: { name: string }) => {
+      .then((data: { name: string; slack_user_id?: string }) => {
         setToken(t);
         setName(data.name);
+        setSlackUserId(data.slack_user_id ?? null);
         setTokenVerified(true);
+        trackMagicLinkUsed(data.name, data.slack_user_id ?? "anonymous");
+        trackStepChanged("name", "menu", data.name);
         setStep("menu");
       })
       .catch(() => {
@@ -45,19 +59,39 @@ export default function OrderPage() {
       });
   }, []);
 
+  function goToStep(next: Step) {
+    trackStepChanged(step, next, name);
+    setStep(next);
+  }
+
   function handleSelectItem(item: MenuItem) {
+    trackItemClicked(item, name, slackUserId);
     setSelected(item);
     setSelectedBread(item.bread?.[0] ?? "");
     setSelectedDressing([]);
-    setStep("confirm");
+    goToStep("confirm");
+  }
+
+  function handleBreadSelect(option: string) {
+    trackBreadSelected(selected?.id ?? "", option, name);
+    setSelectedBread(option);
+  }
+
+  function handleSortChange(key: "price" | "name") {
+    const next = sortBy === key ? "default" : key;
+    trackSortChanged(next, sortBy, name);
+    setSortBy(next);
   }
 
   function toggleDressing(option: string) {
-    setSelectedDressing((prev) => {
-      if (prev.includes(option)) return prev.filter((d) => d !== option);
-      if (prev.length >= 2) return prev;
-      return [...prev, option];
-    });
+    const isSelected = selectedDressing.includes(option);
+    if (isSelected) {
+      trackDressingToggled(selected?.id ?? "", option, "remove", name, slackUserId);
+      setSelectedDressing((prev) => prev.filter((d) => d !== option));
+    } else if (selectedDressing.length < 2) {
+      trackDressingToggled(selected?.id ?? "", option, "add", name, slackUserId);
+      setSelectedDressing((prev) => [...prev, option]);
+    }
   }
 
   async function submitOrder() {
@@ -79,11 +113,14 @@ export default function OrderPage() {
       });
       if (!res.ok) {
         const data = await res.json();
-        setError(data.error ?? "Ocurrió un error");
+        const errorMsg = data.error ?? "Ocurrió un error";
+        trackOrderError(errorMsg, selected.id, name.trim());
+        setError(errorMsg);
         return;
       }
+      trackOrderConfirmed(selected, selectedBread || null, selectedDressing, name.trim(), slackUserId, tokenVerified);
       setOrderPhrase(getOrderPhrase());
-      setStep("done");
+      goToStep("done");
     } catch {
       setError("No se pudo conectar. Intentá de nuevo.");
     } finally {
@@ -118,7 +155,7 @@ export default function OrderPage() {
               value={name}
               onChange={(e) => setName(e.target.value)}
               onKeyDown={(e) =>
-                e.key === "Enter" && name.trim().length >= 2 && setStep("menu")
+                e.key === "Enter" && name.trim().length >= 2 && goToStep("menu")
               }
               placeholder="Nombre"
               disabled={tokenVerified}
@@ -127,7 +164,7 @@ export default function OrderPage() {
             />
             <button
               disabled={name.trim().length < 2}
-              onClick={() => setStep("menu")}
+              onClick={() => goToStep("menu")}
               className="w-full bg-gray-900 hover:bg-gray-700 disabled:bg-gray-100 disabled:text-gray-300 text-white font-semibold rounded-xl py-3 transition-colors"
             >
               Ver menú →
@@ -146,7 +183,7 @@ export default function OrderPage() {
                 {(["price", "name"] as const).map((key) => (
                   <button
                     key={key}
-                    onClick={() => setSortBy(sortBy === key ? "default" : key)}
+                    onClick={() => handleSortChange(key)}
                     className={`text-sm font-medium px-3 py-1.5 rounded-xl border transition-colors ${
                       sortBy === key
                         ? "bg-gray-900 border-gray-900 text-white"
@@ -227,7 +264,7 @@ export default function OrderPage() {
                       <button
                         key={option}
                         type="button"
-                        onClick={() => setSelectedBread(option)}
+                        onClick={() => handleBreadSelect(option)}
                         className={`px-4 py-2 rounded-xl text-sm font-medium border transition-colors ${
                           selectedBread === option
                             ? "bg-gray-900 border-gray-900 text-white"
@@ -282,7 +319,7 @@ export default function OrderPage() {
               {error && <p className="text-red-400 text-sm mb-4">{error}</p>}
               <div className="flex gap-3 mt-6">
                 <button
-                  onClick={() => setStep("menu")}
+                  onClick={() => goToStep("menu")}
                   className="flex-1 border border-gray-200 text-gray-500 font-semibold rounded-xl py-3 hover:bg-gray-50 transition-colors"
                 >
                   Cambiar
