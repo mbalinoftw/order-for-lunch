@@ -96,6 +96,7 @@ export const MENU_ITEMS: MenuItem[] = [
     photo_url: "/menu-items/palermo.png",
     bread: ["Pan brioche blanco", "Pan brioche sésamo", "Pan brioche orégano"],
     dressing: ["Mayonesa de ajo", "Mayonesa de choclo", "Mayonesa de roquefort", "Aceite de oliva", "Miel mostaza", "Queso crema", "Crema de jalapeño", "Manteca"],
+    veggie: true,
   },
 ]
 

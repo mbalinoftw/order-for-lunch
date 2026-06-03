@@ -6,6 +6,7 @@ export interface MenuItem {
   photo_url: string
   bread?: string[]
   dressing?: string[]
+  veggie?: boolean
 }
 
 export interface Order {

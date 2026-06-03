@@ -14,6 +14,7 @@ export function MenuCard({ item, onClick }: MenuCardProps) {
   const hasPhoto = item.photo_url && item.photo_url !== "/placeholder-food.jpg" && !imgError
   const hasBread = item.bread && item.bread.length > 0
   const hasDressing = item.dressing && item.dressing.length > 0
+  const isVeggie = item.veggie === true
 
   return (
     <button
@@ -32,6 +33,13 @@ export function MenuCard({ item, onClick }: MenuCardProps) {
           />
         ) : (
           <span className="text-6xl opacity-40">🍽️</span>
+        )}
+        {isVeggie && (
+          <div className="absolute top-2 left-2">
+            <span className="inline-flex items-center gap-1 text-[10px] font-medium px-1.5 py-0.5 rounded-full bg-green-700/80 text-white backdrop-blur-sm">
+              🥦 Veggie
+            </span>
+          </div>
         )}
         {(hasBread || hasDressing) && (
           <div className="absolute bottom-2 right-2 flex gap-1">
