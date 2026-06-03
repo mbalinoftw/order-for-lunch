@@ -34,31 +34,33 @@ export function MenuCard({ item, onClick }: MenuCardProps) {
         ) : (
           <span className="text-6xl opacity-40">🍽️</span>
         )}
-        <div className="absolute top-2 right-2">
-          <span className="inline-flex items-center text-[10px] font-medium px-1.5 py-0.5 rounded-full bg-gray-900/70 text-white backdrop-blur-sm">
-            ${item.price.toLocaleString()} aprox
-          </span>
-        </div>
+        {isVeggie && (
+          <div className="absolute top-2 left-2">
+            <span className="inline-flex items-center gap-1 text-[10px] font-medium px-1.5 py-0.5 rounded-full bg-green-700/80 text-white backdrop-blur-sm">
+              🥦 Veggie
+            </span>
+          </div>
+        )}
       </div>
       <div className="p-4 flex flex-col flex-1">
         <h3 className="font-semibold text-gray-900 mb-1">{item.name}</h3>
         <p className="text-gray-400 text-sm mb-3 flex-1">{item.description}</p>
-        <div className="flex gap-1 flex-wrap">
-          {isVeggie && (
-            <span className="inline-flex items-center gap-1 text-[10px] font-medium px-1.5 py-0.5 rounded-full bg-green-700/80 text-white">
-              🥦 Veggie
-            </span>
-          )}
-          {hasBread && (
-            <span className="inline-flex items-center gap-1 text-[10px] font-medium px-1.5 py-0.5 rounded-full bg-gray-900/70 text-white">
-              🍞 Pan
-            </span>
-          )}
-          {hasDressing && (
-            <span className="inline-flex items-center gap-1 text-[10px] font-medium px-1.5 py-0.5 rounded-full bg-gray-900/70 text-white">
-              🥗 Aderezo
-            </span>
-          )}
+        <div className="flex items-center justify-between">
+          <div className="flex gap-1 flex-wrap">
+            {hasBread && (
+              <span className="inline-flex items-center gap-1 text-[10px] font-medium px-1.5 py-0.5 rounded-full bg-gray-900/70 text-white">
+                🍞 Pan
+              </span>
+            )}
+            {hasDressing && (
+              <span className="inline-flex items-center gap-1 text-[10px] font-medium px-1.5 py-0.5 rounded-full bg-gray-900/70 text-white">
+                🥗 Aderezo
+              </span>
+            )}
+          </div>
+          <span className="inline-flex items-center text-[10px] font-medium px-1.5 py-0.5 rounded-full bg-gray-900/70 text-white">
+            ${item.price.toLocaleString()} aprox
+          </span>
         </div>
       </div>
     </button>
