@@ -12,6 +12,8 @@ interface MenuCardProps {
 export function MenuCard({ item, onClick }: MenuCardProps) {
   const [imgError, setImgError] = useState(false)
   const hasPhoto = item.photo_url && item.photo_url !== "/placeholder-food.jpg" && !imgError
+  const hasBread = item.bread && item.bread.length > 0
+  const hasDressing = item.dressing && item.dressing.length > 0
 
   return (
     <button
@@ -30,6 +32,20 @@ export function MenuCard({ item, onClick }: MenuCardProps) {
           />
         ) : (
           <span className="text-6xl opacity-40">🍽️</span>
+        )}
+        {(hasBread || hasDressing) && (
+          <div className="absolute bottom-2 right-2 flex gap-1">
+            {hasBread && (
+              <span className="inline-flex items-center gap-1 text-[10px] font-medium px-1.5 py-0.5 rounded-full bg-gray-900/70 text-white backdrop-blur-sm">
+                🍞 Pan
+              </span>
+            )}
+            {hasDressing && (
+              <span className="inline-flex items-center gap-1 text-[10px] font-medium px-1.5 py-0.5 rounded-full bg-gray-900/70 text-white backdrop-blur-sm">
+                🥗 Aderezo
+              </span>
+            )}
+          </div>
         )}
       </div>
       <div className="p-4 flex flex-col flex-1">
