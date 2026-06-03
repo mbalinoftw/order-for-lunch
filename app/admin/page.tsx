@@ -6,6 +6,23 @@ import { MENU_ITEMS } from "@/lib/menu"
 import type { OrdersMap, TeamMember, OutreachStats } from "@/lib/types"
 import Link from "next/link"
 
+type ConfirmAction = "remind" | "reset"
+
+const CONFIRM_CONFIG: Record<ConfirmAction, { title: string; body: string; confirmLabel: string; destructive: boolean }> = {
+  remind: {
+    title: "Enviar recordatorios",
+    body: "Se enviará un DM por Slack a quienes del equipo aún no pidieron ni se dieron de baja.",
+    confirmLabel: "Enviar recordatorios",
+    destructive: false,
+  },
+  reset: {
+    title: "Resetear pedidos del día",
+    body: "Se borrarán todos los pedidos, opt-outs y el progreso de links enviados de hoy. Esta acción no se puede deshacer.",
+    confirmLabel: "Resetear",
+    destructive: true,
+  },
+}
+
 export default function AdminPage() {
   const router = useRouter()
   const [orders, setOrders] = useState<OrdersMap>({})
@@ -21,6 +38,7 @@ export default function AdminPage() {
   const [showLinksModal, setShowLinksModal] = useState(false)
   const [teamMembers, setTeamMembers] = useState<TeamMember[]>([])
   const [selectedIds, setSelectedIds] = useState<Set<string>>(new Set())
+  const [confirmAction, setConfirmAction] = useState<ConfirmAction | null>(null)
 
   const fetchOrders = useCallback(async () => {
     setLoading(true)
@@ -128,13 +146,20 @@ export default function AdminPage() {
   }
 
   async function resetOrders() {
-    if (!confirm("¿Seguro que querés borrar todos los pedidos del día?")) return
     setResetting(true)
     await fetch("/api/orders", {
       method: "DELETE",
     })
     await fetchOrders()
     setResetting(false)
+  }
+
+  async function handleConfirmAction() {
+    if (!confirmAction) return
+    const action = confirmAction
+    setConfirmAction(null)
+    if (action === "remind") await sendReminders()
+    else if (action === "reset") await resetOrders()
   }
 
   const orderedList = Object.values(orders)
@@ -256,7 +281,7 @@ export default function AdminPage() {
             <p className="text-sm text-gray-500 bg-gray-50 rounded-xl px-4 py-3">{linksResult}</p>
           )}
           <button
-            onClick={sendReminders}
+            onClick={() => setConfirmAction("remind")}
             disabled={reminding}
             className="w-full bg-gray-100 hover:bg-gray-200 disabled:opacity-50 text-gray-700 font-semibold rounded-xl py-3 transition-colors"
           >
@@ -272,7 +297,7 @@ export default function AdminPage() {
             📋 Ver resumen para WhatsApp
           </Link>
           <button
-            onClick={resetOrders}
+            onClick={() => setConfirmAction("reset")}
             disabled={resetting || totalCount === 0}
             className="w-full border border-red-200 text-red-400 hover:bg-red-50 disabled:opacity-40 font-semibold rounded-xl py-3 transition-colors"
           >
@@ -330,6 +355,35 @@ export default function AdminPage() {
                 className="flex-1 bg-gray-900 hover:bg-gray-700 disabled:bg-gray-100 disabled:text-gray-300 text-white font-semibold rounded-xl py-2.5 transition-colors text-sm"
               >
                 Enviar a {selectedIds.size}
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
+
+      {confirmAction && (
+        <div className="fixed inset-0 bg-black/40 flex items-center justify-center z-50 px-4">
+          <div className="bg-white rounded-2xl shadow-xl w-full max-w-sm p-6">
+            <h3 className="font-semibold text-gray-900 mb-1">{CONFIRM_CONFIG[confirmAction].title}</h3>
+            <p className="text-sm text-gray-400 mb-6">{CONFIRM_CONFIG[confirmAction].body}</p>
+            <div className="flex gap-3">
+              <button
+                onClick={() => setConfirmAction(null)}
+                disabled={reminding || resetting}
+                className="flex-1 border border-gray-200 text-gray-500 font-semibold rounded-xl py-2.5 hover:bg-gray-50 disabled:opacity-50 transition-colors text-sm"
+              >
+                Cancelar
+              </button>
+              <button
+                onClick={handleConfirmAction}
+                disabled={reminding || resetting}
+                className={`flex-1 font-semibold rounded-xl py-2.5 disabled:opacity-50 transition-colors text-sm ${
+                  CONFIRM_CONFIG[confirmAction].destructive
+                    ? "bg-red-500 hover:bg-red-600 text-white"
+                    : "bg-gray-900 hover:bg-gray-700 text-white"
+                }`}
+              >
+                {CONFIRM_CONFIG[confirmAction].confirmLabel}
               </button>
             </div>
           </div>
