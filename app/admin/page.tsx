@@ -3,12 +3,13 @@
 import { useEffect, useState, useCallback } from "react"
 import { useRouter } from "next/navigation"
 import { MENU_ITEMS } from "@/lib/menu"
-import type { OrdersMap, TeamMember } from "@/lib/types"
+import type { OrdersMap, TeamMember, OutreachStats } from "@/lib/types"
 import Link from "next/link"
 
 export default function AdminPage() {
   const router = useRouter()
   const [orders, setOrders] = useState<OrdersMap>({})
+  const [outreach, setOutreach] = useState<OutreachStats | null>(null)
   const [loading, setLoading] = useState(true)
   const [reminding, setReminding] = useState(false)
   const [reminderResult, setReminderResult] = useState("")
@@ -23,9 +24,15 @@ export default function AdminPage() {
 
   const fetchOrders = useCallback(async () => {
     setLoading(true)
-    const res = await fetch("/api/orders")
+    const res = await fetch("/api/orders", { credentials: "include" })
     const data = await res.json()
-    setOrders(data)
+    if (data.orders) {
+      setOrders(data.orders)
+      setOutreach(data.outreach)
+    } else {
+      setOrders(data)
+      setOutreach(null)
+    }
     setLoading(false)
   }, [])
 
@@ -107,6 +114,7 @@ export default function AdminPage() {
       })
       const data = await res.json()
       setLinksResult(`✅ Links enviados a ${data.sent} ${data.sent === 1 ? "persona" : "personas"}`)
+      await fetchOrders()
     } catch {
       setLinksResult("❌ Error al enviar los links")
     } finally {
@@ -170,9 +178,32 @@ export default function AdminPage() {
           ) : (
             <>
               <p className="text-3xl font-bold text-gray-900 mb-1">{totalCount}</p>
-              <p className="text-gray-400 text-sm">
+              <p className="text-gray-400 text-sm mb-4">
                 {totalCount === 1 ? "persona ordenó" : "personas ordenaron"} hoy
               </p>
+              {outreach && outreach.sent > 0 ? (
+                <div className="pt-4 border-t border-gray-100">
+                  <div className="flex items-baseline justify-between mb-2">
+                    <p className="text-sm text-gray-600">
+                      <span className="font-semibold text-gray-900">
+                        {outreach.confirmed}/{outreach.sent}
+                      </span>{" "}
+                      respondieron
+                    </p>
+                    <p className="text-sm font-medium text-gray-500">{outreach.percent}%</p>
+                  </div>
+                  <div className="h-2 bg-gray-100 rounded-full overflow-hidden">
+                    <div
+                      className="h-full bg-gray-900 rounded-full transition-all duration-300"
+                      style={{ width: `${outreach.percent}%` }}
+                    />
+                  </div>
+                </div>
+              ) : (
+                <p className="text-xs text-gray-300 pt-4 border-t border-gray-100">
+                  Enviá links por DM para ver el progreso de respuesta
+                </p>
+              )}
             </>
           )}
         </div>

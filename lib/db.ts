@@ -1,6 +1,6 @@
 import { Redis } from "@upstash/redis"
 import { randomUUID } from "crypto"
-import type { MenuItem, MagicTokenPayload, Order, OrdersMap, TeamMember } from "./types"
+import type { MenuItem, MagicTokenPayload, Order, OrdersMap, TeamMember, OutreachStats } from "./types"
 
 const redis = Redis.fromEnv()
 
@@ -87,8 +87,38 @@ export async function deleteOrder(personName: string): Promise<void> {
 }
 
 export async function resetDayOrders(day?: string): Promise<void> {
-  const key = `orders:${day ?? dayKey()}`
-  await redis.del(key)
+  const d = day ?? dayKey()
+  await Promise.all([
+    redis.del(`orders:${d}`),
+    redis.del(`links:sent:${d}`),
+    redis.del(`skipped:${d}`),
+  ])
+}
+
+export async function recordLinksSent(slackUserIds: string[]): Promise<void> {
+  if (slackUserIds.length === 0) return
+  const key = `links:sent:${dayKey()}`
+  await Promise.all(slackUserIds.map((id) => redis.sadd(key, id)))
+}
+
+export async function getLinksSentForDay(day?: string): Promise<string[]> {
+  return redis.smembers(`links:sent:${day ?? dayKey()}`) as Promise<string[]>
+}
+
+export type { OutreachStats } from "./types"
+
+export async function getOutreachStats(day?: string): Promise<OutreachStats> {
+  const d = day ?? dayKey()
+  const [sentIds, orders, skipped] = await Promise.all([
+    getLinksSentForDay(d),
+    getOrdersForDay(d),
+    getSkippedUsers(d),
+  ])
+  const skippedSet = new Set(skipped)
+  const sent = sentIds.length
+  const confirmed = sentIds.filter((id) => id in orders || skippedSet.has(id)).length
+  const percent = sent > 0 ? Math.round((confirmed / sent) * 100) : 0
+  return { sent, confirmed, percent }
 }
 
 export async function getMenuItems(): Promise<MenuItem[] | null> {
@@ -112,8 +142,8 @@ export async function skipUser(slackUserId: string): Promise<void> {
   await redis.sadd(`skipped:${dayKey()}`, slackUserId)
 }
 
-export async function getSkippedUsers(): Promise<string[]> {
-  return redis.smembers(`skipped:${dayKey()}`)
+export async function getSkippedUsers(day?: string): Promise<string[]> {
+  return redis.smembers(`skipped:${day ?? dayKey()}`)
 }
 
 export interface DaySnapshot {

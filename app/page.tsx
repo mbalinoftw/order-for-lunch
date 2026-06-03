@@ -34,6 +34,7 @@ export default function OrderPage() {
   const [sortBy, setSortBy] = useState<"default" | "price" | "name">("default");
   const [slackUserId, setSlackUserId] = useState<string | null>(null);
   const tokenChecked = useRef(false);
+  const confirmHistoryPushed = useRef(false);
 
   useEffect(() => {
     if (tokenChecked.current) return;
@@ -58,6 +59,30 @@ export default function OrderPage() {
         );
       });
   }, []);
+
+  useEffect(() => {
+    if (step !== "confirm") {
+      confirmHistoryPushed.current = false;
+      return;
+    }
+
+    function handlePopState() {
+      trackStepChanged("confirm", "menu", name);
+      setStep("menu");
+      confirmHistoryPushed.current = false;
+    }
+
+    window.addEventListener("popstate", handlePopState);
+
+    if (!confirmHistoryPushed.current) {
+      window.history.pushState({ step: "confirm" }, "");
+      confirmHistoryPushed.current = true;
+    }
+
+    return () => {
+      window.removeEventListener("popstate", handlePopState);
+    };
+  }, [step, name]);
 
   function goToStep(next: Step) {
     trackStepChanged(step, next, name);
@@ -91,6 +116,14 @@ export default function OrderPage() {
     } else if (selectedDressing.length < 2) {
       trackDressingToggled(selected?.id ?? "", option, "add", name, slackUserId);
       setSelectedDressing((prev) => [...prev, option]);
+    }
+  }
+
+  function handleCancelConfirm() {
+    if (confirmHistoryPushed.current) {
+      window.history.back();
+    } else {
+      goToStep("menu");
     }
   }
 
@@ -319,7 +352,7 @@ export default function OrderPage() {
               {error && <p className="text-red-400 text-sm mb-4">{error}</p>}
               <div className="flex gap-3 mt-6">
                 <button
-                  onClick={() => goToStep("menu")}
+                  onClick={handleCancelConfirm}
                   className="flex-1 border border-gray-200 text-gray-500 font-semibold rounded-xl py-3 hover:bg-gray-50 transition-colors"
                 >
                   Cambiar

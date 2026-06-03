@@ -29,3 +29,9 @@ export interface TeamMember {
 }
 
 export type OrdersMap = Record<string, Order>
+
+export interface OutreachStats {
+  sent: number
+  confirmed: number
+  percent: number
+}

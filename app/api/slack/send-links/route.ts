@@ -1,5 +1,6 @@
 import { NextRequest, NextResponse } from "next/server"
 import { sendLinks } from "@/lib/slack"
+import { recordLinksSent } from "@/lib/db"
 
 export async function POST(request: NextRequest) {
   const { isValidAdminCookie, ADMIN_COOKIE } = await import("@/lib/auth")
@@ -12,5 +13,8 @@ export async function POST(request: NextRequest) {
 
   const appUrl = process.env.NEXT_PUBLIC_APP_URL ?? "http://localhost:3000"
   const sent = await sendLinks(appUrl, slackUserIds)
+  if (slackUserIds?.length) {
+    await recordLinksSent(slackUserIds)
+  }
   return NextResponse.json({ sent })
 }

@@ -1,11 +1,18 @@
 import { NextRequest, NextResponse } from "next/server"
-import { saveOrder, getOrdersForDay, resetDayOrders, getAndConsumeToken } from "@/lib/db"
+import { saveOrder, getOrdersForDay, resetDayOrders, getAndConsumeToken, getOutreachStats } from "@/lib/db"
 import { getMenuItem, MENU_ITEMS } from "@/lib/menu"
 import { sendOrderConfirmation } from "@/lib/slack"
 
 export async function GET(request: NextRequest) {
   const day = request.nextUrl.searchParams.get("day") ?? undefined
   const orders = await getOrdersForDay(day)
+
+  const { isValidAdminCookie, ADMIN_COOKIE } = await import("@/lib/auth")
+  if (await isValidAdminCookie(request.cookies.get(ADMIN_COOKIE)?.value)) {
+    const outreach = await getOutreachStats(day)
+    return NextResponse.json({ orders, outreach })
+  }
+
   return NextResponse.json(orders)
 }
 
