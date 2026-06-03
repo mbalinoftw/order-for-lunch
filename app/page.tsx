@@ -360,6 +360,9 @@ export default function OrderPage() {
                   "{orderPhrase}"
                 </p>
               </blockquote>
+              <p className="text-gray-400 text-xs mt-6">
+                Tu pedido fue recibido. Podés cerrar esta ventana.
+              </p>
             </div>
           </div>
         )}
