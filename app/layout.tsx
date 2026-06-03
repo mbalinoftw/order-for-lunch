@@ -1,5 +1,6 @@
 import type { Metadata } from "next";
 import { Plus_Jakarta_Sans, Geist_Mono } from "next/font/google";
+import { Analytics } from "@vercel/analytics/next";
 import "./globals.css";
 
 const plusJakartaSans = Plus_Jakarta_Sans({
@@ -32,6 +33,7 @@ export default function RootLayout({
         <footer className="mt-auto border-t border-gray-200 bg-gray-900 py-3 text-center text-xs text-gray-400">
           Vibecodeada con @Claude por Marian
         </footer>
+        <Analytics />
       </body>
     </html>
   );
