@@ -9,12 +9,11 @@ App interna para coordinar el almuerzo en la ofi. El coordinador elige cuándo i
 ```
 Coordinador abre /admin
     ↓
-📣 Anuncia en el canal de Slack  (opcional)
 📨 Envía links personalizados por DM
     ↓
 Cada persona abre su link → elige menú + pan + aderezo → confirma
     ↓
-Coordinador ve quién falta → 📲 Manda recordatorio por DM
+Coordinador ve progreso (X/Y respondieron) → 📲 Manda recordatorio por DM
     ↓
 📋 Abre /summary → copia el texto → pega en WhatsApp al local
 ```
@@ -73,7 +72,6 @@ Usar la URL de ngrok como `NEXT_PUBLIC_APP_URL` y como Request URL en la Slack A
 | `UPSTASH_REDIS_REST_TOKEN` | Token de autenticación de Upstash |
 | `SLACK_BOT_TOKEN` | Token del bot (`xoxb-...`), desde OAuth & Permissions |
 | `SLACK_SIGNING_SECRET` | Signing secret de la Slack App, desde Basic Information |
-| `SLACK_CHANNEL_ID` | ID del canal donde se publican los anuncios (ej: `C0XXXXXXX`) |
 | `NEXT_PUBLIC_APP_URL` | URL pública de la app (ej: `https://url-de-tu-web.app`) |
 | `ADMIN_PASSWORD` | Contraseña para acceder al panel `/admin` |
 | `ADMIN_SECRET` | Clave secreta para firmar la cookie de sesión (string aleatorio largo) |
@@ -93,7 +91,7 @@ En **OAuth & Permissions** → **Bot Token Scopes**, agregar:
 
 | Scope | Para qué |
 |-------|---------|
-| `chat:write` | Publicar mensajes en canales y DMs |
+| `chat:write` | Enviar mensajes por DM |
 | `im:write` | Abrir conversaciones DM con usuarios |
 
 ### 3. Instalar en el workspace
@@ -139,6 +137,7 @@ app/
 ├── admin/
 │   ├── page.tsx                # Panel del coordinador
 │   └── login/page.tsx          # Login con contraseña
+├── dashboard/page.tsx          # Analytics históricos
 ├── summary/page.tsx            # Resumen para copiar y pegar en WhatsApp
 ├── components/
 │   └── MenuCard.tsx            # Card de ítem del menú
@@ -150,9 +149,9 @@ app/
     │   ├── login/route.ts      # Iniciar sesión
     │   └── logout/route.ts     # Cerrar sesión
     └── slack/
-        ├── announce/route.ts   # Publicar anuncio en canal
         ├── send-links/route.ts # Enviar links personalizados por DM
         ├── remind/route.ts     # Recordatorio a quienes faltan
+        ├── interactions/route.ts # Botones Slack (opt-out, recordar en 15 min)
         └── events/route.ts     # Webhook de eventos Slack
 
 lib/
@@ -193,7 +192,9 @@ Las fotos van en `/public/menu-items/` con el nombre que corresponda.
 | Clave | Contenido | TTL |
 |-------|-----------|-----|
 | `team:members` | Array de `{ name, slack_user_id }` | Sin vencimiento |
-| `orders:YYYY-WW` | Hash de pedidos de la semana (ISO 8601) | Sin vencimiento |
+| `orders:YYYY-MM-DD` | Hash de pedidos del día | Sin vencimiento |
+| `links:sent:YYYY-MM-DD` | Set de `slack_user_id` a quienes se envió link | Sin vencimiento |
+| `skipped:YYYY-MM-DD` | Set de `slack_user_id` que hicieron opt-out | Sin vencimiento |
 | `token:{uuid}` | Payload del magic link `{ slack_user_id, name }` | 24 horas |
 | `login_attempts:{ip}` | Contador de intentos de login | 15 minutos |
 
@@ -215,8 +216,9 @@ Acceder en `/admin` con la contraseña definida en `ADMIN_PASSWORD`.
 
 | Acción | Descripción |
 |--------|-------------|
-| 📣 Anunciar en canal | Publica un mensaje en el canal de Slack con el link al menú |
 | 📨 Enviar links por DM | Genera links personalizados y los envía a los miembros seleccionados |
-| 📲 Recordar a quienes faltan | DM a los que todavía no cargaron su pedido |
+| 📲 Recordar a quienes faltan | DM a quienes del equipo no pidieron ni hicieron opt-out (pide confirmación) |
 | 📋 Ver resumen | Texto `Nombre: Sánguche (pan, aderezo)` listo para copiar y pegar en WhatsApp |
-| 🗑️ Resetear pedidos | Borra todos los pedidos de la semana actual |
+| 🗑️ Resetear pedidos | Borra pedidos, opt-outs y progreso de links del día (pide confirmación) |
+
+El bloque **Estado del pedido** muestra cuántas personas ordenaron hoy y, si ya enviaste links, el progreso `X/Y respondieron` (incluye pedidos confirmados y opt-outs).

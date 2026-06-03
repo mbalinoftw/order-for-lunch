@@ -6,7 +6,7 @@
 
 Weekly lunch coordination app for a small office team (~10-20 people). Replaces fragmented workflow across Slack, Google Sheets, and WhatsApp. Coordinator manages the flow from a protected admin panel; team members order via web app or Slack magic links.
 
-Core business flow: coordinator announces → team members receive DMs with personalized links → each person orders via web form → coordinator exports summary for WhatsApp → restaurant receives order.
+Core business flow: coordinator sends personalized DMs with magic links → each person orders via web form → coordinator tracks response progress and sends reminders → coordinator exports summary for WhatsApp → restaurant receives order.
 
 ---
 
@@ -26,10 +26,9 @@ Core business flow: coordinator announces → team members receive DMs with pers
 
 ```
 Admin Panel (/admin)
-  └── POST /api/slack/announce     → Slack channel message
   └── POST /api/slack/send-links   → DMs with magic tokens
   └── POST /api/slack/remind       → DMs to pending users
-  └── DELETE /api/orders           → reset week orders
+  └── DELETE /api/orders           → reset day orders + skipped + links:sent
 
 User App (/page.tsx — 4-step state machine)
   └── GET  /api/auth/token         → validate magic token (peek, no consume)
@@ -40,11 +39,12 @@ Slack Webhook (/api/slack/interactions)
   └── opt_out_order → skipUser() in Redis
 
 Redis (Upstash)
-  orders:{YYYY-WW}      HASH   field = slackUserId or name.toLowerCase()
-  token:{uuid}          STRING TTL=86400s  MagicTokenPayload
-  team:members          STRING JSON array  TeamMember[]
-  skipped:{YYYY-WW}     SET    slackUserIds who opted out
-  login_attempts:{ip}   STRING counter     TTL=900s rate limit
+  orders:{YYYY-MM-DD}     HASH   field = slackUserId or name.toLowerCase()
+  links:sent:{YYYY-MM-DD} SET    slackUserIds who received magic link DMs
+  token:{uuid}            STRING TTL=86400s  MagicTokenPayload
+  team:members            STRING JSON array  TeamMember[]
+  skipped:{YYYY-MM-DD}    SET    slackUserIds who opted out
+  login_attempts:{ip}     STRING counter     TTL=900s rate limit
 ```
 
 ---
@@ -54,10 +54,11 @@ Redis (Upstash)
 | File | Responsibility |
 |---|---|
 | `app/page.tsx` | 4-step order flow, client state machine, all analytics calls |
-| `app/admin/page.tsx` | Coordinator dashboard, order grouping, action buttons |
+| `app/admin/page.tsx` | Coordinator dashboard, outreach progress, confirm modals for destructive actions |
+| `app/dashboard/page.tsx` | Historical analytics (menu popularity, participation) |
 | `app/summary/page.tsx` | WhatsApp-ready text export with copy-to-clipboard |
 | `app/components/MenuCard.tsx` | Menu item card (photo, price, bread/dressing/veggie badges) |
-| `app/api/orders/route.ts` | GET (fetch week orders) / POST (save order) / DELETE (admin reset) |
+| `app/api/orders/route.ts` | GET (OrdersMap; admin gets `{ orders, outreach }`) / POST / DELETE |
 | `app/api/auth/token/route.ts` | GET — validate token, return `{ name, slack_user_id }`, no consume |
 | `app/api/slack/interactions/route.ts` | Slack button webhook, signature verification |
 | `app/api/slack/send-links/route.ts` | Generate tokens + send DMs to team |
@@ -66,7 +67,7 @@ Redis (Upstash)
 | `middleware.ts` | Protects `/admin/*` and `/dashboard` with admin cookie |
 | `lib/db.ts` | All Redis operations — NEVER import client-side (instantiates Redis at module level) |
 | `lib/auth.ts` | `computeAdminToken()`, `isValidAdminCookie()`, `ADMIN_COOKIE` constant |
-| `lib/slack.ts` | Slack Bot: announce, sendMagicLink, sendReminder, sendOrderConfirmation, sendLinks |
+| `lib/slack.ts` | Slack Bot: sendMagicLink, sendReminder, sendOrderConfirmation, sendLinks |
 | `lib/analytics.ts` | Vercel Analytics typed wrappers — safe to import client-side |
 | `lib/types.ts` | `MenuItem`, `Order`, `MagicTokenPayload`, `TeamMember`, `OrdersMap` |
 | `lib/menu.ts` | `MENU_ITEMS` array (11 sandwiches), `getMenuItem(id)` |
@@ -77,11 +78,16 @@ Redis (Upstash)
 ## Redis Schema
 
 ```
-orders:{YYYY-WW}
+orders:{YYYY-MM-DD}
   Type: HASH
   Field: slack_user_id (preferred) or name.toLowerCase() (manual entry)
   Value: JSON Order { name, slack_user_id?, item_id, selected_bread?, selected_dressing?, created_at }
-  TTL: none — persists permanently, reset manually via DELETE /api/orders
+  TTL: none — reset manually via DELETE /api/orders
+
+links:sent:{YYYY-MM-DD}
+  Type: SET
+  Members: slack_user_id strings who received magic link DMs today
+  TTL: none — cleared on day reset
 
 token:{uuid}
   Type: STRING (JSON)
@@ -95,10 +101,10 @@ team:members
   Value: [{ name: string, slack_user_id: string }]
   TTL: none
 
-skipped:{YYYY-WW}
+skipped:{YYYY-MM-DD}
   Type: SET
   Members: slack_user_id strings
-  TTL: none — used to exclude opted-out users from reminders
+  TTL: none — used to exclude opted-out users from reminders and count as "responded" in outreach stats
 
 login_attempts:{ip}
   Type: STRING (integer)
@@ -106,11 +112,7 @@ login_attempts:{ip}
   Limit: 10 attempts per window
 ```
 
-**Week key algorithm (ISO 8601, Thursday-based):**
-- Shift date to Thursday of current week: `d += (4 - (d.getDay() || 7))`
-- Week = `ceil((daysSinceYearStart + 1) / 7)`
-- Format: `YYYY-WW` (e.g. `2026-23`)
-- Defined in `lib/db.ts:weekKey()` AND duplicated in `lib/analytics.ts:getWeekKey()` — the latter exists because `lib/db.ts` cannot be imported client-side (Redis instantiation at module level breaks the browser bundle)
+**Day key algorithm:** `new Date().toISOString().slice(0, 10)` → `YYYY-MM-DD` (UTC). Defined in `lib/db.ts:dayKey()`.
 
 ---
 
@@ -147,9 +149,8 @@ login_attempts:{ip}
 
 | Function | Target | Content |
 |---|---|---|
-| `postOrderAnnouncement()` | Channel (`SLACK_CHANNEL_ID`) | Block Kit + "Ver menú" button → `APP_URL` |
-| `sendMagicLink()` | User DM | Block Kit + 3 buttons: "Cargar pedido" (URL), "Recordame 15min" (action), "No voy a pedir" (action) |
-| `sendReminder()` | User DM | Markdown with magic link |
+| `sendMagicLink()` | User DM | Block Kit + buttons: "Cargar pedido" (URL), "Recordame en 15 min" (action), "No voy a pedir" (action) |
+| `sendReminder()` | User DM | Generic app URL reminder (no personalized token) |
 | `sendOrderConfirmation()` | User DM | Block Kit: item, price, bread, dressing, optional bank transfer info |
 
 **Slack interactions handled:**
@@ -167,16 +168,15 @@ login_attempts:{ip}
 
 | Method | Path | Auth | Effect |
 |---|---|---|---|
-| GET | `/api/orders` | none | Returns `OrdersMap` for `?week=YYYY-WW` (default: current) |
+| GET | `/api/orders` | none (admin cookie → enriched) | Returns `OrdersMap`, or `{ orders, outreach }` for admin |
 | POST | `/api/orders` | none (token optional) | Validates + saves order, sends Slack DM (fire-and-forget) |
-| DELETE | `/api/orders` | admin cookie | `resetWeekOrders()` |
+| DELETE | `/api/orders` | admin cookie | `resetDayOrders()` — orders, skipped, links:sent |
 | GET | `/api/auth/token` | none | Validates token, returns `{ name, slack_user_id }` (no consume) |
 | POST | `/api/admin/login` | none | HMAC validate + set cookie, rate limited |
 | POST | `/api/admin/logout` | none | Clears cookie |
 | GET | `/api/team` | admin cookie | Returns `TeamMember[]` |
-| POST | `/api/slack/announce` | admin cookie | Posts to Slack channel |
-| POST | `/api/slack/send-links` | admin cookie | Generates tokens + sends DMs |
-| POST | `/api/slack/remind` | admin cookie | DMs pending users |
+| POST | `/api/slack/send-links` | admin cookie | Generates tokens + sends DMs + records `links:sent` |
+| POST | `/api/slack/remind` | admin cookie | DMs pending users (`teamMemberHasOrdered` + skipped filter) |
 | POST | `/api/slack/interactions` | Slack signature | Handles button actions |
 | GET | `/api/dashboard` | admin cookie | Historical analytics aggregation |
 | GET | `/api/cron` | — | Returns 410 (deprecated) |
@@ -233,7 +233,6 @@ All events include `week: getWeekKey()`. Defined in `lib/analytics.ts`.
 |---|---|---|
 | `SLACK_BOT_TOKEN` | yes | OAuth bot token (`xoxb-...`) for API calls |
 | `SLACK_SIGNING_SECRET` | yes | Webhook signature verification |
-| `SLACK_CHANNEL_ID` | yes | Channel ID (`C...`) for announcements |
 | `ADMIN_PASSWORD` | yes | Coordinator login password |
 | `ADMIN_SECRET` | yes | HMAC key — must differ from `ADMIN_PASSWORD` |
 | `UPSTASH_REDIS_REST_URL` | yes | Upstash Redis endpoint |
@@ -262,7 +261,7 @@ All events include `week: getWeekKey()`. Defined in `lib/analytics.ts`.
 - Path alias `@/` for all `lib/` and `app/` imports
 - Relative imports only within same directory
 
-**Redis keys:** `namespace:identifier` format with colons. Week keys always `YYYY-WW` (zero-padded).
+**Redis keys:** `namespace:identifier` format with colons. Day keys use `YYYY-MM-DD` (UTC via `dayKey()`).
 
 **lib/db.ts constraint:** Cannot be imported in client components — Redis client instantiates at module level. Any shared logic needed client-side must be extracted to a separate module (see `getWeekKey` duplication in `lib/analytics.ts`).
 

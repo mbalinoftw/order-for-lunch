@@ -7,35 +7,7 @@ export const slackApp = new App({
   socketMode: false,
 })
 
-export const SLACK_CHANNEL_ID = process.env.SLACK_CHANNEL_ID!
 const APP_URL = process.env.NEXT_PUBLIC_APP_URL ?? "http://localhost:3000"
-
-export async function postOrderAnnouncement(): Promise<void> {
-  await slackApp.client.chat.postMessage({
-    channel: SLACK_CHANNEL_ID,
-    text: ":fork_and_knife: *¡Hora del pedido!* Elegí tu almuerzo antes de que cierre.",
-    blocks: [
-      {
-        type: "section",
-        text: {
-          type: "mrkdwn",
-          text: ":fork_and_knife: *¡Hora del pedido!*\nElegí tu almuerzo y confirmá tu pedido.",
-        },
-      },
-      {
-        type: "actions",
-        elements: [
-          {
-            type: "button",
-            text: { type: "plain_text", text: "Ver menú y pedir", emoji: true },
-            style: "primary",
-            url: APP_URL,
-          },
-        ],
-      },
-    ],
-  })
-}
 
 export async function sendReminder(slackUserId: string, appUrl: string): Promise<void> {
   await slackApp.client.chat.postMessage({
