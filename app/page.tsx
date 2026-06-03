@@ -21,6 +21,7 @@ export default function OrderPage() {
   const [selectedBread, setSelectedBread] = useState("");
   const [selectedDressing, setSelectedDressing] = useState<string[]>([]);
   const [orderPhrase, setOrderPhrase] = useState("");
+  const [sortBy, setSortBy] = useState<"default" | "price" | "name">("default");
   const tokenChecked = useRef(false);
 
   useEffect(() => {
@@ -136,20 +137,40 @@ export default function OrderPage() {
 
         {step === "menu" && (
           <>
-            <div className="mb-6 flex items-center gap-3">
+            <div className="mb-6 flex items-center justify-between gap-3">
               <p className="text-3xl text-gray-500">
                 Hola <strong className="text-gray-900">{name}</strong>, ¿cuál te
                 vas a pedir hoy? 🤤
               </p>
+              <div className="flex gap-2 shrink-0">
+                {(["price", "name"] as const).map((key) => (
+                  <button
+                    key={key}
+                    onClick={() => setSortBy(sortBy === key ? "default" : key)}
+                    className={`text-sm font-medium px-3 py-1.5 rounded-xl border transition-colors ${
+                      sortBy === key
+                        ? "bg-gray-900 border-gray-900 text-white"
+                        : "border-gray-200 text-gray-500 hover:border-gray-400"
+                    }`}
+                  >
+                    {key === "price" ? "Precio" : "Nombre"}
+                  </button>
+                ))}
+              </div>
             </div>
             <div className="grid grid-cols-1 sm:grid-cols-2 md:grid-cols-4 gap-4">
-              {MENU_ITEMS.map((item) => (
-                <MenuCard
-                  key={item.id}
-                  item={item}
-                  onClick={() => handleSelectItem(item)}
-                />
-              ))}
+              {[...MENU_ITEMS]
+                .sort((a, b) =>
+                  sortBy === "price" ? a.price - b.price :
+                  sortBy === "name"  ? a.name.localeCompare(b.name) : 0
+                )
+                .map((item) => (
+                  <MenuCard
+                    key={item.id}
+                    item={item}
+                    onClick={() => handleSelectItem(item)}
+                  />
+                ))}
             </div>
           </>
         )}
