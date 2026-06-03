@@ -106,7 +106,13 @@ Copiar el **Bot User OAuth Token** (`xoxb-...`) → `SLACK_BOT_TOKEN`.
 
 En **Basic Information** → **App Credentials** → copiar **Signing Secret** → `SLACK_SIGNING_SECRET`.
 
-### 5. Event Subscriptions (opcional)
+### 5. Interactivity & Shortcuts (requerido)
+
+Para que funcione el botón "No voy a pedir, gracias" en los DMs:
+
+- En **Interactivity & Shortcuts** → activar → Request URL: `https://tu-web.app/api/slack/interactions`
+
+### 6. Event Subscriptions (opcional)
 
 Si querés recibir eventos de Slack:
 

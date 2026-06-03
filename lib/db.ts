@@ -114,4 +114,12 @@ export async function saveTeamMembers(members: TeamMember[]): Promise<void> {
   await redis.set("team:members", JSON.stringify(members))
 }
 
+export async function skipUser(slackUserId: string): Promise<void> {
+  await redis.sadd(`skipped:${weekKey()}`, slackUserId)
+}
+
+export async function getSkippedUsers(): Promise<string[]> {
+  return redis.smembers(`skipped:${weekKey()}`)
+}
+
 export { weekKey }

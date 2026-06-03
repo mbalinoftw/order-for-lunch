@@ -1,5 +1,5 @@
 import { NextRequest, NextResponse } from "next/server"
-import { getTeamMembers, getOrdersForWeek } from "@/lib/db"
+import { getTeamMembers, getOrdersForWeek, getSkippedUsers } from "@/lib/db"
 import { sendReminder } from "@/lib/slack"
 
 export async function POST(request: NextRequest) {
@@ -8,11 +8,16 @@ export async function POST(request: NextRequest) {
     return NextResponse.json({ error: "Unauthorized" }, { status: 401 })
   }
 
-  const [members, orders] = await Promise.all([getTeamMembers(), getOrdersForWeek()])
+  const [members, orders, skipped] = await Promise.all([
+    getTeamMembers(), getOrdersForWeek(), getSkippedUsers()
+  ])
   const orderedKeys = new Set(Object.keys(orders))
+  const skippedSet = new Set(skipped)
 
   const appUrl = process.env.NEXT_PUBLIC_APP_URL ?? "http://localhost:3000"
-  const pending = members.filter((m) => !orderedKeys.has(m.name.toLowerCase()))
+  const pending = members.filter(
+    (m) => !orderedKeys.has(m.name.toLowerCase()) && !skippedSet.has(m.slack_user_id)
+  )
 
   const results = await Promise.allSettled(
     pending.map((m) => sendReminder(m.slack_user_id, appUrl))

@@ -66,6 +66,12 @@ export async function sendMagicLink(slackUserId: string, token: string, appUrl: 
             style: "primary",
             url,
           },
+          {
+            type: "button",
+            text: { type: "plain_text", text: "No voy a pedir, gracias", emoji: true },
+            action_id: "opt_out_order",
+            style: "danger",
+          },
         ],
       },
     ],
