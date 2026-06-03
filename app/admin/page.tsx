@@ -145,6 +145,9 @@ export default function AdminPage() {
           <p className="text-sm text-gray-400">Gestión del almuerzo semanal</p>
         </div>
         <div className="flex items-center gap-4">
+          <Link href="/dashboard" className="text-sm text-gray-400 hover:text-gray-700">
+            📊 Dashboard
+          </Link>
           <Link href="/" className="text-sm text-gray-400 hover:text-gray-700">
             Ver menú →
           </Link>

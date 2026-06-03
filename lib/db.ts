@@ -122,4 +122,38 @@ export async function getSkippedUsers(): Promise<string[]> {
   return redis.smembers(`skipped:${weekKey()}`)
 }
 
+export interface WeekSnapshot {
+  week: string
+  orders: OrdersMap
+  skipped: string[]
+}
+
+export async function getAllWeeksData(): Promise<WeekSnapshot[]> {
+  const orderKeys: string[] = []
+  let cursor = 0
+  do {
+    const [nextCursor, keys] = await redis.scan(cursor, { match: "orders:*", count: 100 })
+    orderKeys.push(...(keys as string[]))
+    cursor = Number(nextCursor)
+  } while (cursor !== 0)
+
+  if (orderKeys.length === 0) return []
+
+  const weeks = orderKeys
+    .map((k) => k.replace("orders:", ""))
+    .sort((a, b) => b.localeCompare(a))
+
+  const snapshots = await Promise.all(
+    weeks.map(async (week) => {
+      const [orders, skipped] = await Promise.all([
+        getOrdersForWeek(week),
+        redis.smembers(`skipped:${week}`) as Promise<string[]>,
+      ])
+      return { week, orders, skipped }
+    })
+  )
+
+  return snapshots
+}
+
 export { weekKey }
