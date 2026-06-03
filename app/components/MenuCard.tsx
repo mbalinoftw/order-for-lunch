@@ -34,32 +34,32 @@ export function MenuCard({ item, onClick }: MenuCardProps) {
         ) : (
           <span className="text-6xl opacity-40">🍽️</span>
         )}
-        {isVeggie && (
-          <div className="absolute top-2 left-2">
-            <span className="inline-flex items-center gap-1 text-[10px] font-medium px-1.5 py-0.5 rounded-full bg-green-700/80 text-white backdrop-blur-sm">
-              🥦 Veggie
-            </span>
-          </div>
-        )}
-        {(hasBread || hasDressing) && (
-          <div className="absolute bottom-2 right-2 flex gap-1">
-            {hasBread && (
-              <span className="inline-flex items-center gap-1 text-[10px] font-medium px-1.5 py-0.5 rounded-full bg-gray-900/70 text-white backdrop-blur-sm">
-                🍞 Pan
-              </span>
-            )}
-            {hasDressing && (
-              <span className="inline-flex items-center gap-1 text-[10px] font-medium px-1.5 py-0.5 rounded-full bg-gray-900/70 text-white backdrop-blur-sm">
-                🥗 Aderezo
-              </span>
-            )}
-          </div>
-        )}
+        <div className="absolute top-2 right-2">
+          <span className="inline-flex items-center text-[10px] font-medium px-1.5 py-0.5 rounded-full bg-gray-900/70 text-white backdrop-blur-sm">
+            ${item.price.toLocaleString()} aprox
+          </span>
+        </div>
       </div>
       <div className="p-4 flex flex-col flex-1">
         <h3 className="font-semibold text-gray-900 mb-1">{item.name}</h3>
         <p className="text-gray-400 text-sm mb-3 flex-1">{item.description}</p>
-        <p className="text-gray-400 text-sm font-medium">${item.price.toLocaleString()} aprox</p>
+        <div className="flex gap-1 flex-wrap">
+          {isVeggie && (
+            <span className="inline-flex items-center gap-1 text-[10px] font-medium px-1.5 py-0.5 rounded-full bg-green-700/80 text-white">
+              🥦 Veggie
+            </span>
+          )}
+          {hasBread && (
+            <span className="inline-flex items-center gap-1 text-[10px] font-medium px-1.5 py-0.5 rounded-full bg-gray-900/70 text-white">
+              🍞 Pan
+            </span>
+          )}
+          {hasDressing && (
+            <span className="inline-flex items-center gap-1 text-[10px] font-medium px-1.5 py-0.5 rounded-full bg-gray-900/70 text-white">
+              🥗 Aderezo
+            </span>
+          )}
+        </div>
       </div>
     </button>
   )
