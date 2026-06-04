@@ -34,6 +34,18 @@ export function teamMemberHasOrdered(member: TeamMember, orders: OrdersMap): boo
   return Object.values(orders).some((o) => o.slack_user_id === member.slack_user_id)
 }
 
+export function slackUserHasResponded(
+  slackUserId: string,
+  orders: OrdersMap,
+  skippedSet: Set<string>,
+  member?: TeamMember,
+): boolean {
+  if (skippedSet.has(slackUserId)) return true
+  if (member) return teamMemberHasOrdered(member, orders)
+  if (slackUserId in orders) return true
+  return Object.values(orders).some((o) => o.slack_user_id === slackUserId)
+}
+
 export async function generateTokensForTeam(
   filterIds?: string[],
 ): Promise<Map<string, string>> {
@@ -115,16 +127,20 @@ export type { OutreachStats } from "./types"
 
 export async function getOutreachStats(day?: string): Promise<OutreachStats> {
   const d = day ?? dayKey()
-  const [sentIds, orders, skipped] = await Promise.all([
+  const [sentIds, orders, skipped, members] = await Promise.all([
     getLinksSentForDay(d),
     getOrdersForDay(d),
     getSkippedUsers(d),
+    getTeamMembers(),
   ])
-  const skippedSet = new Set(skipped)
+  const skippedSet = new Set(skipped ?? [])
+  const memberBySlackId = new Map(members.map((m) => [m.slack_user_id, m]))
   const sent = sentIds.length
-  const confirmed = sentIds.filter((id) => id in orders || skippedSet.has(id)).length
-  const percent = sent > 0 ? Math.round((confirmed / sent) * 100) : 0
-  return { sent, confirmed, percent }
+  const responded = sentIds.filter((id) =>
+    slackUserHasResponded(id, orders, skippedSet, memberBySlackId.get(id))
+  ).length
+  const percent = sent > 0 ? Math.round((responded / sent) * 100) : 0
+  return { sent, responded, percent }
 }
 
 export async function getMenuItems(): Promise<MenuItem[] | null> {

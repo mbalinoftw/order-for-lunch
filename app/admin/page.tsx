@@ -216,7 +216,7 @@ export default function AdminPage() {
                   <div className="flex items-baseline justify-between mb-2">
                     <p className="text-sm text-gray-600">
                       <span className="font-semibold text-gray-900">
-                        {outreach.confirmed}/{outreach.sent}
+                        {outreach.responded}/{outreach.sent}
                       </span>{" "}
                       respondieron
                     </p>

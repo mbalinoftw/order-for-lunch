@@ -32,6 +32,6 @@ export type OrdersMap = Record<string, Order>
 
 export interface OutreachStats {
   sent: number
-  confirmed: number
+  responded: number
   percent: number
 }
